@@ -1,0 +1,131 @@
+name: Sync release metadata
+
+# Receives the `veltis-release` repository event from VeltisMC/Veltis after a
+# successful build and release, validates the payload, and writes the channel's
+# metadata into `public/releases/<channel>.json`. Vercel redeploys on the push.
+#
+# The build repository owns the metadata; this workflow never originates it and
+# never invents a value. If the payload is malformed the job fails loudly and the
+# site is left unchanged.
+on:
+  repository_dispatch:
+    types: [veltis-release]
+
+# Only the repository's own contents are written, with the workflow's token.
+# A push made with GITHUB_TOKEN does not re-trigger Actions, so this cannot loop.
+permissions:
+  contents: write
+
+# Serialize updates so two releases cannot race to write the same channel file.
+concurrency:
+  group: sync-release-metadata
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the website
+        uses: actions/checkout@v4
+
+      - name: Validate the release payload
+        id: payload
+        env:
+          PAYLOAD: ${{ toJson(github.event.client_payload) }}
+        run: |
+          set -euo pipefail
+          FILE="$RUNNER_TEMP/payload.json"
+          printf '%s' "$PAYLOAD" > "$FILE"
+
+          jq empty "$FILE" || { echo "::error::the payload is not valid JSON"; exit 1; }
+
+          # Every fact the download page renders is checked here. A payload that
+          # fails is rejected outright rather than partially trusted.
+          jq -e '
+            (.channel | type == "string" and IN("stable", "beta", "nightly"))
+            and (.version | type == "string" and length > 0)
+            and (.minecraftVersion | type == "string" and length > 0)
+            and (.commit | type == "string" and test("^[0-9a-f]{40}$"))
+            and (.shortCommit | type == "string" and test("^[0-9a-f]{7}$"))
+            and (.shortCommit == (.commit[0:7]))
+            and (.artifact | type == "string" and length > 0)
+            and (.artifact == ("Veltis " + .minecraftVersion + " " + .channel + " " + .shortCommit + ".jar"))
+            and (.distributionArtifact == "veltis.jar")
+            and (.downloadUrl | type == "string" and test("^https://"))
+            and (.publishedAt | type == "string" and (fromdateiso8601? != null))
+            and ((.size == null) or (.size | type == "number" and . > 0))
+          ' "$FILE" > /dev/null || {
+            echo "::error::the release payload failed validation; the site was not updated"
+            cat "$FILE"
+            exit 1
+          }
+
+          {
+            echo "channel=$(jq -r .channel "$FILE")"
+            echo "commit=$(jq -r .commit "$FILE")"
+            echo "shortCommit=$(jq -r .shortCommit "$FILE")"
+            echo "artifact=$(jq -r .artifact "$FILE")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update the channel metadata
+        env:
+          CHANNEL: ${{ steps.payload.outputs.channel }}
+        run: |
+          set -euo pipefail
+          mkdir -p public/releases
+          FILE="public/releases/$CHANNEL.json"
+
+          PREV='{"history":[]}'
+          if [ -f "$FILE" ]; then PREV=$(cat "$FILE"); fi
+
+          # Only the incoming channel's file is touched, so publishing a nightly
+          # never rewrites stable history. The new build is newest; older entries
+          # are kept, de-duplicated by commit, and capped.
+          jq -n \
+            --argjson incoming "$(cat "$RUNNER_TEMP/payload.json")" \
+            --argjson prev "$PREV" \
+            --arg channel "$CHANNEL" \
+            '{
+               channel: $channel,
+               latest: $incoming,
+               history: (
+                 [$incoming] + [($prev.latest // empty)] + ($prev.history // [])
+                 | unique_by(.commit)
+                 | sort_by(.publishedAt)
+                 | reverse
+                 | .[0:20]
+               )
+             }' > "$FILE.tmp"
+          mv "$FILE.tmp" "$FILE"
+
+          # Re-read what was written and confirm it still parses as expected.
+          jq -e '
+            (.channel | IN("stable", "beta", "nightly"))
+            and (.latest.commit | test("^[0-9a-f]{40}$"))
+            and (.history | length > 0)
+          ' "$FILE" > /dev/null || {
+            echo "::error::the written $FILE is invalid; refusing to commit"
+            cat "$FILE"
+            exit 1
+          }
+
+          echo "Updated $FILE"
+
+      - name: Commit and push
+        env:
+          CHANNEL: ${{ steps.payload.outputs.channel }}
+          SHORT: ${{ steps.payload.outputs.shortCommit }}
+          ARTIFACT: ${{ steps.payload.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          git config user.name "VeltisMC Release Bot"
+          git config user.email "release-bot@users.noreply.github.com"
+
+          git add public/releases
+          if git diff --cached --quiet; then
+            echo "This release is already recorded; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "release: $CHANNEL $SHORT ($ARTIFACT)"
+          git push
