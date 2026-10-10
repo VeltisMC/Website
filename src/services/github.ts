@@ -12,9 +12,13 @@ const CHANNELS: readonly ReleaseChannel[] = siteConfig.releaseChannels
 
 /**
  * The published filename, parsed so a GitHub-release-only fallback can recover
- * the same facts the metadata file carries: `Veltis <mc> <channel> <sha>.jar`.
+ * the same facts the metadata file carries. Two spellings exist for one name:
+ * the human `Veltis 26.3 nightly aaa8824.jar`, and the form GitHub stores,
+ * `Veltis.26.3.nightly.aaa8824.jar` — GitHub normalizes every release asset
+ * name, so the releases API only ever returns the dotted one.
  */
-const ARTIFACT_PATTERN = /^Veltis (.+) (stable|beta|nightly) ([0-9a-f]{7})\.jar$/
+const ARTIFACT_PATTERN =
+  /^Veltis[ .](.+?)[ .](stable|beta|nightly)[ .]([0-9a-f]{7})\.jar$/
 
 /** The release tag CI writes: `veltis-<channel>-<minecraft>-<sha>`. */
 const TAG_PATTERN = /^veltis-(stable|beta|nightly)-(.+)-([0-9a-f]{7})$/
@@ -36,6 +40,11 @@ function commitUrl(commit: string): string {
 /** Turns one channel-metadata entry into the shape the download UI renders. */
 function fromChannelRelease(release: ChannelRelease): BuildInfo {
   const short = release.shortCommit || release.commit.slice(0, 7)
+  // The release stores the asset under `assetName` (GitHub folds the spaces of
+  // `artifact` into dots); that is the file the download URL serves, so it is
+  // the filename the UI shows. Older payloads without it fall back to `artifact`.
+  const artifact =
+    release.assetName && release.assetName.length > 0 ? release.assetName : release.artifact
   return {
     id: release.commit || release.artifact,
     version: release.version,
@@ -47,7 +56,7 @@ function fromChannelRelease(release: ChannelRelease): BuildInfo {
     commitUrl: release.commit ? commitUrl(release.commit) : release.releaseUrl,
     commitMessage: `Veltis ${release.minecraftVersion} ${release.channel} build`,
     downloadUrl: release.downloadUrl,
-    artifact: release.artifact,
+    artifact,
     releaseUrl: release.releaseUrl,
     size: release.size,
     javaRequirement: release.minimumJavaVersion

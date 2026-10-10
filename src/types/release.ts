@@ -21,7 +21,10 @@ export interface BuildInfo {
   commitUrl?: string
   commitMessage: string
   downloadUrl: string
-  /** The published filename, e.g. `Veltis 26.3 stable a1b2c3d.jar`. */
+  /**
+   * The published filename, e.g. `Veltis 26.3 stable a1b2c3d.jar`. This is the
+   * human name the release is titled with.
+   */
   artifact: string
   releaseUrl?: string
   sha256?: string
@@ -75,6 +78,13 @@ export interface ChannelRelease {
   commit: string
   shortCommit: string
   artifact: string
+  /**
+   * The filename a GitHub release stores the asset under: the same values as
+   * `artifact`, but GitHub has already replaced the spaces with dots. That is
+   * the string the release's own asset list holds and the download is served
+   * as, so the UI prefers it when it is present.
+   */
+  assetName?: string
   distributionArtifact: string
   downloadUrl: string
   releaseUrl?: string

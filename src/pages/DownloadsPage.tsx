@@ -49,6 +49,11 @@ export default function DownloadsPage() {
         ? currentVersionData?.latestBeta || filteredBuilds[0]
         : currentVersionData?.latestNightly || filteredBuilds[0]
 
+  // A downloaded build keeps its published artifact filename, so the startup
+  // command uses that same name instead of a generic one. Quoted because the
+  // human artifact name can contain spaces.
+  const startupArtifact = featuredBuild?.artifact ?? 'veltis.jar'
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
       {/* Header Banner */}
@@ -147,7 +152,7 @@ export default function DownloadsPage() {
         </p>
         <CodeBlock
           language="bash"
-          code={`java -jar veltis.jar --nogui`}
+          code={`java -jar "${startupArtifact}" --nogui`}
         />
       </div>
     </div>

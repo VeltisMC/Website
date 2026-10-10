@@ -50,6 +50,8 @@ jobs:
             and (.shortCommit == (.commit[0:7]))
             and (.artifact | type == "string" and length > 0)
             and (.artifact == ("Veltis " + .minecraftVersion + " " + .channel + " " + .shortCommit + ".jar"))
+            and (.assetName | type == "string" and length > 0 and test("^[A-Za-z0-9_+@.-]+$"))
+            and (.assetName == (.artifact | gsub(" "; ".")))
             and (.distributionArtifact == "veltis.jar")
             and (.downloadUrl | type == "string" and test("^https://"))
             and (.publishedAt | type == "string" and (fromdateiso8601? != null))
