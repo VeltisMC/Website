@@ -28,12 +28,12 @@ function build(partial: Partial<BuildInfo> & { id: string; channel: BuildInfo['c
 }
 
 const release = build({ id: 'r', channel: 'release' })
-const nightly = build({
-  id: 'n',
-  channel: 'nightly',
+const beta = build({
+  id: 'b',
+  channel: 'beta',
   publishedAt: '2026-10-11T12:00:00Z',
-  downloadUrl: 'https://github.com/VeltisMC/Veltis/releases/download/tag/nightly.jar',
-  artifact: 'Veltis 26.3 nightly 3077e84.jar',
+  downloadUrl: 'https://github.com/VeltisMC/Veltis/releases/download/tag/beta.jar',
+  artifact: 'Veltis 26.3 beta 3077e84.jar',
   isPrerelease: true,
 })
 
@@ -50,29 +50,29 @@ describe('DownloadsPage', () => {
     fetchReleasesMock.mockReset()
   })
 
-  it('downloads the latest official release when one exists, even if a newer nightly exists', async () => {
-    fetchReleasesMock.mockResolvedValue(result([nightly, release]))
+  it('downloads the latest official release when one exists, even if a newer beta exists', async () => {
+    fetchReleasesMock.mockResolvedValue(result([beta, release]))
     render(<DownloadsPage />)
 
     const link = await screen.findByRole('link', { name: `Download ${release.artifact}` })
     expect(link).toHaveAttribute('href', release.downloadUrl)
-    // The nightlies are hidden until experimental builds are shown.
-    expect(screen.queryByText(nightly.artifact)).toBeNull()
+    // The experimental builds are hidden until the toggle is used.
+    expect(screen.queryByText(beta.artifact)).toBeNull()
   })
 
   it('reveals experimental builds only when the toggle is used', async () => {
-    fetchReleasesMock.mockResolvedValue(result([nightly, release]))
+    fetchReleasesMock.mockResolvedValue(result([beta, release]))
     render(<DownloadsPage />)
 
     await screen.findByRole('link', { name: `Download ${release.artifact}` })
-    expect(screen.queryByText(nightly.artifact)).toBeNull()
+    expect(screen.queryByText(beta.artifact)).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /Show experimental builds/i }))
-    expect(await screen.findByText(nightly.artifact)).toBeInTheDocument()
+    expect(await screen.findByText(beta.artifact)).toBeInTheDocument()
   })
 
   it('shows an honest empty state and no download when only experimental builds exist', async () => {
-    fetchReleasesMock.mockResolvedValue(result([nightly]))
+    fetchReleasesMock.mockResolvedValue(result([beta]))
     render(<DownloadsPage />)
 
     await waitFor(() => expect(fetchReleasesMock).toHaveBeenCalled())

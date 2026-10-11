@@ -40,9 +40,8 @@ export interface BuildInfo {
 
 export interface VersionReleases {
   minecraftVersion: string
-  latestStable?: BuildInfo
+  latestRelease?: BuildInfo
   latestBeta?: BuildInfo
-  latestNightly?: BuildInfo
   builds: BuildInfo[]
 }
 
@@ -70,7 +69,7 @@ export interface GitHubRelease {
  * One build's publication metadata, exactly as the Veltis repository's CI
  * dispatches it and as this site stores it at `/releases/<channel>.json`.
  *
- * `artifact` is the human release title (`Veltis 26.3 nightly 3077e84.jar`);
+ * `artifact` is the human release title (`Veltis 26.3 pre-alpha 3077e84.jar`);
  * `distributionArtifact` is the constant local name (`veltis.jar`) the build
  * produced before CI renamed it; `assetName` is the name GitHub actually stores
  * the asset under. All three are different facts about the same build.

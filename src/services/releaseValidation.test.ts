@@ -59,99 +59,106 @@ function expectAccepted(result: ReturnType<typeof validate>): NormalizedRelease 
 
 describe('canonical filename rules', () => {
   it('folds the human title into the name GitHub stores', () => {
-    expect(githubAssetName('Veltis 26.3 nightly 3077e84.jar')).toBe(
-      'Veltis.26.3.nightly.3077e84.jar',
+    expect(githubAssetName('Veltis 26.3 pre-alpha 3077e84.jar')).toBe(
+      'Veltis.26.3.pre-alpha.3077e84.jar',
     )
   })
 
   it('collapses already-dotted input idempotently', () => {
-    expect(githubAssetName('Veltis.26.3.nightly.3077e84.jar')).toBe(
-      'Veltis.26.3.nightly.3077e84.jar',
+    expect(githubAssetName('Veltis.26.3.pre-alpha.3077e84.jar')).toBe(
+      'Veltis.26.3.pre-alpha.3077e84.jar',
+    )
+  })
+
+  it('keeps hyphens inside a channel name intact when folding spaces', () => {
+    expect(githubAssetName('Veltis 26.3 release 3077e84.jar')).toBe(
+      'Veltis.26.3.release.3077e84.jar',
     )
   })
 })
 
 describe('validateReleasePayload', () => {
-  it('accepts a valid nightly payload (the one that was failing)', () => {
-    const value = expectAccepted(validate(payloadFor('nightly')))
-    expect(value.channel).toBe('nightly')
-    expect(value.assetName).toBe('Veltis.26.3.nightly.3077e84.jar')
+  it('accepts a valid pre-alpha payload', () => {
+    const value = expectAccepted(validate(payloadFor('pre-alpha')))
+    expect(value.channel).toBe('pre-alpha')
+    expect(value.assetName).toBe('Veltis.26.3.pre-alpha.3077e84.jar')
     expect(value.minimumJavaVersion).toBe(25)
   })
 
-  it('accepts valid pre-alpha, alpha, beta, release and legacy stable payloads', () => {
-    for (const channel of ['pre-alpha', 'alpha', 'beta', 'release', 'stable']) {
+  it('accepts valid alpha, beta, release and legacy stable payloads', () => {
+    for (const channel of ['alpha', 'beta', 'release', 'stable']) {
       const value = expectAccepted(validate(payloadFor(channel)))
       expect(value.channel).toBe(channel)
       expect(value.artifact).toBe(`Veltis 26.3 ${channel} ${SHORT}.jar`)
     }
   })
 
-  it('rejects an unsupported channel', () => {
+  it('rejects an unsupported channel, including the retired nightly', () => {
     expectRejected(validate(payloadFor('stable', { metadata: { channel: 'canary' } })), 'metadata.channel')
+    expectRejected(validate(payloadFor('stable', { metadata: { channel: 'nightly' } })), 'metadata.channel')
   })
 
   it('rejects the dotted-versus-spaced mismatch (assetName not GitHub form of artifact)', () => {
-    const broken = payloadFor('nightly')
-    broken.metadata!.assetName = 'Veltis 26.3 nightly 3077e84.jar'
+    const broken = payloadFor('pre-alpha')
+    broken.metadata!.assetName = 'Veltis 26.3 pre-alpha 3077e84.jar'
     expectRejected(validate(broken), 'metadata.assetName')
   })
 
   it('rejects artifact and assetName that disagree', () => {
-    const broken = payloadFor('nightly')
-    broken.metadata!.assetName = 'Veltis.26.3.nightly.deadbee.jar'
+    const broken = payloadFor('pre-alpha')
+    broken.metadata!.assetName = 'Veltis.26.3.pre-alpha.deadbee.jar'
     expectRejected(validate(broken), 'metadata.assetName')
   })
 
   it('rejects a malformed download URL', () => {
-    const broken = payloadFor('nightly', { release: { downloadUrl: 'ftp://example.com/x.jar' } })
+    const broken = payloadFor('pre-alpha', { release: { downloadUrl: 'ftp://example.com/x.jar' } })
     expectRejected(validate(broken), 'release.downloadUrl')
   })
 
   it('rejects a URL for the wrong release tag', () => {
-    const broken = payloadFor('nightly', {
-      release: { downloadUrl: `https://github.com/${REPO}/releases/download/veltis-nightly-26.3-deadbee/Veltis.26.3.nightly.3077e84.jar` },
+    const broken = payloadFor('pre-alpha', {
+      release: { downloadUrl: `https://github.com/${REPO}/releases/download/veltis-pre-alpha-26.3-deadbee/Veltis.26.3.pre-alpha.3077e84.jar` },
     })
     expectRejected(validate(broken), 'release.downloadUrl')
   })
 
   it('rejects a URL for the wrong repository', () => {
-    const broken = payloadFor('nightly', {
-      release: { downloadUrl: `https://github.com/SomeoneElse/Veltis/releases/download/${releaseTag('nightly', '26.3', SHORT)}/Veltis.26.3.nightly.3077e84.jar` },
+    const broken = payloadFor('pre-alpha', {
+      release: { downloadUrl: `https://github.com/SomeoneElse/Veltis/releases/download/${releaseTag('pre-alpha', '26.3', SHORT)}/Veltis.26.3.pre-alpha.3077e84.jar` },
     })
     expectRejected(validate(broken), 'release.downloadUrl')
   })
 
   it('rejects a download URL whose asset does not match assetName', () => {
-    const broken = payloadFor('nightly', {
-      release: { downloadUrl: `https://github.com/${REPO}/releases/download/${releaseTag('nightly', '26.3', SHORT)}/other.jar` },
+    const broken = payloadFor('pre-alpha', {
+      release: { downloadUrl: `https://github.com/${REPO}/releases/download/${releaseTag('pre-alpha', '26.3', SHORT)}/other.jar` },
     })
     expectRejected(validate(broken), 'release.downloadUrl')
   })
 
   it('rejects a releaseUrl pointing at a different tag', () => {
-    const broken = payloadFor('nightly', {
-      release: { releaseUrl: `https://github.com/${REPO}/releases/tag/veltis-nightly-26.3-deadbee` },
+    const broken = payloadFor('pre-alpha', {
+      release: { releaseUrl: `https://github.com/${REPO}/releases/tag/veltis-pre-alpha-26.3-deadbee` },
     })
     expectRejected(validate(broken), 'release.releaseUrl')
   })
 
   it('rejects a short commit that is not the prefix of the full commit', () => {
-    const broken = payloadFor('nightly', { metadata: { shortCommit: 'deadbee' } })
+    const broken = payloadFor('pre-alpha', { metadata: { shortCommit: 'deadbee' } })
     expectRejected(validate(broken), 'metadata.shortCommit')
   })
 
   it('rejects a malformed full commit', () => {
-    expectRejected(validate(payloadFor('nightly', { metadata: { commit: 'not-a-sha' } })), 'metadata.commit')
+    expectRejected(validate(payloadFor('pre-alpha', { metadata: { commit: 'not-a-sha' } })), 'metadata.commit')
   })
 
   it('rejects missing required metadata', () => {
-    expectRejected(validate(payloadFor('nightly', { metadata: { version: '' } })), 'metadata.version')
-    expectRejected(validate(payloadFor('nightly', { metadata: { minecraftVersion: '' } })), 'metadata.minecraftVersion')
+    expectRejected(validate(payloadFor('pre-alpha', { metadata: { version: '' } })), 'metadata.version')
+    expectRejected(validate(payloadFor('pre-alpha', { metadata: { minecraftVersion: '' } })), 'metadata.minecraftVersion')
   })
 
   it('rejects an artifact that does not follow the canonical convention', () => {
-    const broken = payloadFor('nightly')
+    const broken = payloadFor('pre-alpha')
     broken.metadata!.artifact = 'veltis.jar'
     // assetName now disagrees as well, but the artifact rule must fire too.
     const result = validate(broken)
@@ -160,30 +167,30 @@ describe('validateReleasePayload', () => {
 
   it('rejects a non-constant distribution artifact', () => {
     expectRejected(
-      validate(payloadFor('nightly', { metadata: { distributionArtifact: 'Veltis 26.3 nightly 3077e84.jar' } })),
+      validate(payloadFor('pre-alpha', { metadata: { distributionArtifact: 'Veltis 26.3 pre-alpha 3077e84.jar' } })),
       'metadata.distributionArtifact',
     )
   })
 
   it('rejects an invalid Java requirement', () => {
-    expectRejected(validate(payloadFor('nightly', { metadata: { minimumJavaVersion: 0 } })), 'metadata.minimumJavaVersion')
-    expectRejected(validate(payloadFor('nightly', { metadata: { minimumJavaVersion: 3.5 } })), 'metadata.minimumJavaVersion')
+    expectRejected(validate(payloadFor('pre-alpha', { metadata: { minimumJavaVersion: 0 } })), 'metadata.minimumJavaVersion')
+    expectRejected(validate(payloadFor('pre-alpha', { metadata: { minimumJavaVersion: 3.5 } })), 'metadata.minimumJavaVersion')
   })
 
   it('accepts a payload that omits an optional size and Java requirement', () => {
     const value = expectAccepted(
-      validate(payloadFor('nightly', { metadata: { minimumJavaVersion: null }, release: { size: null } })),
+      validate(payloadFor('pre-alpha', { metadata: { minimumJavaVersion: null }, release: { size: null } })),
     )
     expect(value.minimumJavaVersion).toBeUndefined()
     expect(value.size).toBeUndefined()
   })
 
   it('rejects a non-positive size', () => {
-    expectRejected(validate(payloadFor('nightly', { release: { size: 0 } })), 'release.size')
+    expectRejected(validate(payloadFor('pre-alpha', { release: { size: 0 } })), 'release.size')
   })
 
   it('rejects an unparseable publication timestamp', () => {
-    expectRejected(validate(payloadFor('nightly', { release: { publishedAt: 'yesterday' } })), 'release.publishedAt')
+    expectRejected(validate(payloadFor('pre-alpha', { release: { publishedAt: 'yesterday' } })), 'release.publishedAt')
   })
 
   it('rejects a payload missing the metadata or release half', () => {

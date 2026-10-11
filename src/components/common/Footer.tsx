@@ -91,9 +91,6 @@ export default function Footer() {
             <Link to="/contributing" className="hover:text-slate-400">
               Contributing
             </Link>
-            <Link to="/roadmap" className="hover:text-slate-400">
-              Roadmap
-            </Link>
           </div>
         </div>
       </div>

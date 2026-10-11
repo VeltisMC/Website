@@ -1,15 +1,37 @@
 name: Sync release metadata
 
 # Receives the `veltis-release` repository event from VeltisMC/Veltis after a
-# successful build and release, validates the payload, and writes the channel's
-# metadata into `public/releases/<channel>.json`. Vercel redeploys on the push.
+# successful build and release, validates the payload, and stages the channel's
+# metadata as a pull request against `main`.
 #
-# The build repository owns the metadata; this workflow never originates it and
-# never invents a value. If the payload is malformed the job fails loudly and the
-# site is left unchanged.
+# `main` is a protected branch: no workflow push may bypass its rules. This
+# workflow therefore never pushes to `main`. It writes to a dedicated,
+# per-channel `release-metadata/<channel>` branch, opens (or reuses) a PR, and
+# lets the protected-branch machinery — required checks, Vercel preview and
+# production protections, and review — decide when the metadata lands. It never
+# disables protection, never uses a privileged token, never force-pushes, and
+# never auto-merges.
 #
-# Payload shape (a repository_dispatch allows only ten top-level `client_payload`
-# properties, so the build facts and the durable location are grouped):
+# Verified commits: the metadata commit is created with the GraphQL
+# `createCommitOnBranch` mutation — GitHub's supported mechanism for a GitHub
+# App (the workflow's own GITHUB_TOKEN) to author a commit that GitHub signs
+# with its own key. The commit shows as "Verified" without GPG, a PAT, or a
+# secret.
+#
+# Idempotency: entries are de-duplicated by commit, a commit is only created
+# when the channel file actually changes, and a PR is only created when none
+# exists for the branch. Re-dispatching an already-recorded build is a no-op
+# that duplicates neither history nor PRs.
+#
+# Required checks: a PR created with GITHUB_TOKEN does not re-trigger
+# `pull_request` workflows, so this workflow explicitly dispatches the website
+# CI workflow on the metadata branch; that dispatch always runs and reports the
+# required checks on the branch head. Vercel deploys a preview for the branch
+# itself and production on merge to `main`.
+#
+# Payload shape (a repository_dispatch allows only ten top-level
+# `client_payload` properties, so the build facts and the durable location are
+# grouped):
 #
 #   client_payload.metadata = the build's build-metadata.json
 #     channel, version, minecraftVersion, commit, shortCommit, artifact,
@@ -17,21 +39,25 @@ name: Sync release metadata
 #   client_payload.release = the published GitHub Release
 #     downloadUrl, releaseUrl, publishedAt, size
 #
-# `artifact` is the human release title (`Veltis 26.3 nightly 3077e84.jar`).
+# `artifact` is the human release title (`Veltis 26.3 pre-alpha 3077e84.jar`).
 # GitHub normalizes every uploaded asset name, folding the spaces to dots, so the
-# stored/downloaded file is `assetName`
-# (`Veltis.26.3.nightly.3077e84.jar`). Both are carried, and both are checked
-# against each other and against the download URL.
+# stored/downloaded file is `assetName` (`Veltis.26.3.pre-alpha.3077e84.jar`).
+# Both are carried, and both are checked against each other and against the
+# download URL.
 on:
   repository_dispatch:
     types: [veltis-release]
 
-# Only the repository's own contents are written, with the workflow's token.
-# A push made with GITHUB_TOKEN does not re-trigger Actions, so this cannot loop.
+# The workflow's own token and nothing else. Writing the metadata branch and the
+# PR wants `contents` and `pull-requests`; dispatching CI on the branch wants
+# `actions`. No personal access token, no secret, and no way to bypass `main`'s
+# protection.
 permissions:
   contents: write
+  pull-requests: write
+  actions: write
 
-# Serialize updates so two releases cannot race to write the same channel file.
+# Serialize updates so two releases cannot race to compute the same channel file.
 concurrency:
   group: sync-release-metadata
   cancel-in-progress: false
@@ -44,8 +70,11 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout the website
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Validate the release payload
         id: payload
@@ -61,9 +90,10 @@ jobs:
           # One named boolean per invariant, so a failure names the exact field
           # rather than only saying the payload is wrong. Every fact the download
           # page renders is checked; a payload is rejected outright rather than
-          # partially trusted. No secret is ever printed.
+          # partially trusted. No secret is ever printed. Retired channel
+          # identifiers are not in the supported set and are rejected here.
           CHECKS=$(jq -c --arg repo "$RELEASE_REPOSITORY" '
-            def supported: IN("pre-alpha", "alpha", "beta", "release", "stable", "nightly");
+            def supported: IN("pre-alpha", "alpha", "beta", "release", "stable");
 
             # GitHub replaces every run of characters outside [A-Za-z0-9_+@-] with
             # a dot, collapses runs of dots and trims the edges. This one rule is
@@ -125,7 +155,7 @@ jobs:
           ' "$FILE")
 
           if ! echo "$CHECKS" | jq -e 'to_entries | all(.[]; .value == true)' > /dev/null; then
-            echo "::error::the release payload failed validation; the site was not updated"
+            echo "::error::the release payload failed validation; no metadata was written and no PR was opened"
             echo "--- failed checks ---"
             echo "$CHECKS" | jq -r 'to_entries[] | select(.value != true) | "  - \(.key)"'
             echo "--- received payload ---"
@@ -140,71 +170,206 @@ jobs:
             echo "artifact=$(jq -r .metadata.artifact "$FILE")"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Update the channel metadata
+      - name: Stage the channel metadata
+        id: stage
         env:
           CHANNEL: ${{ steps.payload.outputs.channel }}
+          SHORT: ${{ steps.payload.outputs.shortCommit }}
+          COMMIT: ${{ steps.payload.outputs.commit }}
         run: |
           set -euo pipefail
-          mkdir -p public/releases
+          BRANCH="release-metadata/$CHANNEL"
           FILE="public/releases/$CHANNEL.json"
+          mkdir -p public/releases
 
-          PREV='{"history":[]}'
-          if [ -f "$FILE" ]; then PREV=$(cat "$FILE"); fi
+          # Current state: the branch's copy of the file (if the branch already
+          # exists), and main's copy. Both feed the merged history so a fresh
+          # branch never drops an entry that already landed on main.
+          MAIN_FILE="$RUNNER_TEMP/main.json"
+          if [ -f "$FILE" ]; then cp "$FILE" "$MAIN_FILE"; else printf '{"history":[]}' > "$MAIN_FILE"; fi
 
-          # Only the incoming channel's file is touched, so publishing a nightly
-          # never rewrites stable history. The new build is newest; older entries
-          # are kept, de-duplicated by commit (a duplicate dispatch therefore does
-          # not duplicate history), sorted newest first and capped. Pruning always
-          # keeps the newest entry first, so a previous valid release is never
-          # dropped in favour of an older one.
+          BRANCH_FILE="$RUNNER_TEMP/branch.json"
+          BRANCH_OID=""
+          if git rev-parse -q --verify "refs/remotes/origin/$BRANCH" > /dev/null; then
+            BRANCH_OID=$(git rev-parse "refs/remotes/origin/$BRANCH")
+            if git cat-file -e "refs/remotes/origin/$BRANCH:$FILE" 2>/dev/null; then
+              git show "refs/remotes/origin/$BRANCH:$FILE" > "$BRANCH_FILE"
+            else
+              printf '{"history":[]}' > "$BRANCH_FILE"
+            fi
+          else
+            printf '{"history":[]}' > "$BRANCH_FILE"
+          fi
+
+          # Already merged into main? Then there is nothing to stage or PR.
+          if jq -e --arg c "$COMMIT" \
+            '([.latest, (.history // [])[]] | map(.commit) | index($c)) != null' \
+            "$MAIN_FILE" > /dev/null 2>&1; then
+            echo "::notice::commit $SHORT is already recorded on main; nothing to sync."
+            echo "noop=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The only file touched is this channel's. Newest first, de-duplicated
+          # by commit (a duplicate dispatch therefore cannot duplicate history),
+          # capped, and merged with any entries already on the branch or main.
           ENTRY=$(jq -c '.metadata + .release' "$RUNNER_TEMP/payload.json")
           jq -n \
             --argjson incoming "$ENTRY" \
-            --argjson prev "$PREV" \
+            --argjson main "$(cat "$MAIN_FILE")" \
+            --argjson branch "$(cat "$BRANCH_FILE")" \
             --arg channel "$CHANNEL" \
             '{
                channel: $channel,
                latest: $incoming,
                history: (
-                 [$incoming] + [($prev.latest // empty)] + ($prev.history // [])
+                 [$incoming]
+                 + ([($main.latest // empty)] + ($main.history // []))
+                 + ([($branch.latest // empty)] + ($branch.history // []))
                  | unique_by(.commit)
                  | sort_by(.publishedAt)
                  | reverse
                  | .[0:20]
                )
-             }' > "$FILE.tmp"
-          mv "$FILE.tmp" "$FILE"
+             }' > "$RUNNER_TEMP/$CHANNEL.json"
 
-          # Re-read what was written and confirm it still parses as expected.
+          # Re-read what was computed and confirm it still parses before anything
+          # is committed; a hand-edited or malformed file must stop the run here.
           jq -e --arg channel "$CHANNEL" '
-            (.channel | IN("pre-alpha", "alpha", "beta", "release", "stable", "nightly"))
+            (.channel | IN("pre-alpha", "alpha", "beta", "release", "stable"))
             and (.channel == $channel)
             and (.latest.commit | test("^[0-9a-f]{40}$"))
             and (.latest.downloadUrl | test("^https://github.com/"))
-            and (.history | length > 0)
-          ' "$FILE" > /dev/null || {
-            echo "::error::the written $FILE is invalid; refusing to commit"
-            cat "$FILE"
+            and (.history | type == "array")
+          ' "$RUNNER_TEMP/$CHANNEL.json" > /dev/null || {
+            echo "::error::the staged $FILE is invalid; refusing to commit"
+            cat "$RUNNER_TEMP/$CHANNEL.json"
             exit 1
           }
 
-          echo "Updated $FILE"
+          # Idempotency: no commit when the branch already carries this file.
+          if [ -n "$BRANCH_OID" ] && cmp -s "$RUNNER_TEMP/$CHANNEL.json" "$BRANCH_FILE"; then
+            echo "::notice::$BRANCH already carries this release; no new commit."
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "noop=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "branch_oid=$BRANCH_OID" >> "$GITHUB_OUTPUT"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Commit and push
+      - name: Create or reuse the metadata branch
+        if: steps.stage.outputs.changed == 'true'
+        env:
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          BRANCH="${{ steps.stage.outputs.branch }}"
+          OID="${{ steps.stage.outputs.branch_oid }}"
+          if [ -z "$OID" ]; then
+            MAIN_HEAD=$(git rev-parse HEAD)
+            gh api -X POST "repos/{owner}/{repo}/git/refs" \
+              -f "ref=refs/heads/$BRANCH" -f "sha=$MAIN_HEAD"
+            echo "Created branch $BRANCH at $MAIN_HEAD"
+          else
+            echo "Reused existing branch $BRANCH at $OID"
+          fi
+
+      - name: Commit the metadata with a verified signature
+        if: steps.stage.outputs.changed == 'true'
         env:
           CHANNEL: ${{ steps.payload.outputs.channel }}
           SHORT: ${{ steps.payload.outputs.shortCommit }}
           ARTIFACT: ${{ steps.payload.outputs.artifact }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          git config user.name "VeltisMC Release Bot"
-          git config user.email "release-bot@users.noreply.github.com"
+          BRANCH="${{ steps.stage.outputs.branch }}"
+          HEAD_OID="${{ steps.stage.outputs.branch_oid }}"
+          if [ -z "$HEAD_OID" ]; then HEAD_OID=$(git rev-parse HEAD); fi
+          FILE_PATH="public/releases/$CHANNEL.json"
+          BASE64=$(base64 -w0 "$RUNNER_TEMP/$CHANNEL.json")
 
-          git add public/releases
-          if git diff --cached --quiet; then
-            echo "This release is already recorded; nothing to commit."
+          # createCommitOnBranch signs the commit with GitHub's own key, so the
+          # metadata commit is "Verified" without GPG or a secret. The mutation
+          # creates the commit and advances the branch to it; no remote push is
+          # ever performed, so main is never touched and a forced update is
+          # impossible.
+          INPUT=$(printf '{"branch":{"repositoryNameWithOwner":"%s","branchName":"%s"},"message":{"headline":"release: %s %s (%s)","body":"Automated staging of the Veltis %s build published at %s."},"fileChanges":{"additions":[{"path":"%s","contents":"%s"}]},"expectedHeadOid":"%s"}' \
+            "${{ github.repository }}" "$BRANCH" "$CHANNEL" "$SHORT" "$ARTIFACT" "$CHANNEL" "$SHORT" "$FILE_PATH" "$BASE64" "$HEAD_OID")
+
+          NEW_OID=$(gh api graphql \
+            -f query='mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }' \
+            -F "input=$INPUT" \
+            --jq '.data.createCommitOnBranch.commit.oid') || {
+            echo "::error::createCommitOnBranch failed for $BRANCH (expected head was $HEAD_OID)."
+            echo "::error::If the branch moved since the dispatch, re-dispatch the same release; the workflow is idempotent."
+            exit 1
+          }
+          echo "::notice::Created verified commit $NEW_OID on $BRANCH"
+          echo "head_oid=$NEW_OID" >> "$GITHUB_OUTPUT"
+
+      - name: Open or reuse the pull request
+        if: steps.stage.outputs.branch != ''
+        env:
+          CHANNEL: ${{ steps.payload.outputs.channel }}
+          SHORT: ${{ steps.payload.outputs.shortCommit }}
+          ARTIFACT: ${{ steps.payload.outputs.artifact }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          BRANCH="release-metadata/$CHANNEL"
+
+          PR_NUMBER=$(gh pr list --head "$BRANCH" --base main --state open --json number -q '.[0].number' 2>/dev/null || true)
+          if [ -n "$PR_NUMBER" ]; then
+            echo "::notice::PR #$PR_NUMBER for $BRANCH already open; nothing to create."
+            echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          git commit -m "release: $CHANNEL $SHORT ($ARTIFACT)"
-          git push
+          BODY=$(printf \
+            'Automated release-metadata sync from **%s**.\n\n- Artifact: `%s`\n- Commit: `%s`\n\nThis PR was opened by the release-sync workflow. It never pushes to `main` directly and never auto-merges: it lands through the normal protected-branch rules (required checks, review, and Vercel deployment protection).' \
+            "$RELEASE_REPOSITORY" "$ARTIFACT" "$SHORT")
+
+          # Creating a PR does not trigger pull_request workflows (a GITHUB_TOKEN
+          # event), so the CI dispatch below supplies the required checks.
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "release: $CHANNEL $SHORT ($ARTIFACT)" \
+            --body "$BODY" > /tmp/pr-url.txt
+          echo "::notice::Opened $(cat /tmp/pr-url.txt)"
+          PR_NUMBER=$(gh pr list --head "$BRANCH" --base main --state open --json number -q '.[0].number')
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Run the required checks on the metadata branch
+        if: steps.stage.outputs.branch != '' && ! cancelled()
+        env:
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          BRANCH="${{ steps.stage.outputs.branch }}"
+          # A PR created by GITHUB_TOKEN does not fire pull_request workflows, so
+          # this explicit dispatch — the one event a GITHUB_TOKEN run may always
+          # trigger — runs the website CI on the branch head and reports the
+          # check the branch protection expects. It is never auto-merged.
+          gh workflow run website-ci.yml --ref "$BRANCH" || {
+            echo "::error::could not dispatch website-ci.yml on $BRANCH; the branch will not satisfy required checks until it runs"
+            exit 1
+          }
+          echo "::notice::Dispatched website-ci.yml on $BRANCH"
+
+      - name: Summarize
+        env:
+          CHANNEL: ${{ steps.payload.outputs.channel }}
+          SHORT: ${{ steps.payload.outputs.shortCommit }}
+        run: |
+          if [ "${{ steps.stage.outputs.changed }}" = "true" ]; then
+            echo "Staged release metadata for $CHANNEL $SHORT on release-metadata/$CHANNEL."
+            echo "A PR is open against main. Required checks and the protected-branch rules decide when it merges."
+            echo "Merging triggers Vercel's production deployment; the branch already has a Vercel preview."
+          elif [ "${{ steps.stage.outputs.noop }}" = "true" ]; then
+            echo "No change needed for $CHANNEL $SHORT; it is already recorded."
+          else
+            echo "No change needed for $CHANNEL $SHORT; the metadata branch already carries it."
+          fi

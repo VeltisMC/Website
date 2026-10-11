@@ -17,10 +17,10 @@ export function getSearchIndex(): SearchResultItem[] {
     {
       id: 'page-downloads',
       title: 'Downloads & Releases',
-      description: 'Download the latest stable, beta, and nightly builds for Minecraft 26.3 and more.',
+      description: 'Download the latest pre-alpha, alpha, beta, or release builds for Minecraft 26.3 and more.',
       url: '/downloads',
       category: 'Pages',
-      keywords: ['download', 'jar', 'releases', 'builds', 'stable', 'beta', 'nightly', 'sha256'],
+      keywords: ['download', 'jar', 'releases', 'builds', 'pre-alpha', 'alpha', 'beta', 'release', 'sha256'],
     },
     {
       id: 'page-developers',
@@ -29,30 +29,6 @@ export function getSearchIndex(): SearchResultItem[] {
       url: '/developers',
       category: 'API',
       keywords: ['developers', 'api', 'plugin', 'extension', 'gradle', 'maven'],
-    },
-    {
-      id: 'page-architecture',
-      title: 'System Architecture',
-      description: 'How Veltis is assembled from the decompiled vanilla server, the Shulker patch set, and the patched runtime.',
-      url: '/architecture',
-      category: 'Pages',
-      keywords: ['architecture', 'runtime', 'tick', 'netty', 'patches'],
-    },
-    {
-      id: 'page-shulker',
-      title: 'Shulker Patch Engine',
-      description: 'The Git-based patch pipeline that applies reviewable changes to the decompiled vanilla server.',
-      url: '/shulker',
-      category: 'Pages',
-      keywords: ['shulker', 'patches', 'git', 'rebase', 'upstream', 'decompilation'],
-    },
-    {
-      id: 'page-roadmap',
-      title: 'Project Roadmap',
-      description: 'Development milestones: completed, in-progress, planned, and research investigations.',
-      url: '/roadmap',
-      category: 'Pages',
-      keywords: ['roadmap', 'milestones', 'progress', 'future', 'issues'],
     },
     {
       id: 'page-community',

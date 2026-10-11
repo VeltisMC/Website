@@ -24,7 +24,6 @@ export const footerSections: FooterSection[] = [
     items: [
       { href: '/downloads', label: 'Downloads' },
       { href: '/changelog', label: 'Release Notes' },
-      { href: '/roadmap', label: 'Project Roadmap' },
       { href: '/developers', label: 'Developer Portal' },
     ],
   },
@@ -41,8 +40,6 @@ export const footerSections: FooterSection[] = [
   {
     title: 'Developers',
     items: [
-      { href: '/architecture', label: 'System Architecture' },
-      { href: '/shulker', label: 'Shulker Patch Engine' },
       { href: '/developers', label: 'API Development (WIP)' },
       { href: '/contributing', label: 'Contributing to Veltis' },
     ],

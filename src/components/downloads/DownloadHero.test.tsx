@@ -21,11 +21,18 @@ function build(partial: Partial<BuildInfo> & { id: string; channel: BuildInfo['c
 }
 
 const release = build({ id: 'r', channel: 'release' })
-const nightly = build({
-  id: 'n',
-  channel: 'nightly',
-  downloadUrl: 'https://github.com/VeltisMC/Veltis/releases/download/tag/nightly.jar',
-  artifact: 'Veltis 26.3 nightly 3077e84.jar',
+const beta = build({
+  id: 'b',
+  channel: 'beta',
+  downloadUrl: 'https://github.com/VeltisMC/Veltis/releases/download/tag/beta.jar',
+  artifact: 'Veltis 26.3 beta 3077e84.jar',
+  isPrerelease: true,
+})
+const preAlpha = build({
+  id: 'p',
+  channel: 'pre-alpha',
+  artifact: 'Veltis 26.3 pre-alpha 3077e84.jar',
+  isPrerelease: true,
 })
 
 function noop() {}
@@ -53,8 +60,8 @@ describe('DownloadHero', () => {
     render(
       <DownloadHero
         minecraftVersion="26.3"
-        primary={nightly}
-        builds={[nightly]}
+        primary={preAlpha}
+        builds={[preAlpha]}
         hasRelease={false}
         includeExperimental
         loading={false}
@@ -63,7 +70,7 @@ describe('DownloadHero', () => {
         onRetry={noop}
       />,
     )
-    expect(screen.getAllByText('Nightly').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Pre-alpha').length).toBeGreaterThan(0)
   })
 
   it('never offers a download when no build is eligible', () => {
@@ -85,7 +92,7 @@ describe('DownloadHero', () => {
   it('explains that no official release exists instead of faking one', () => {
     render(
       <DownloadHero
-        builds={[nightly]}
+        builds={[beta]}
         hasRelease={false}
         includeExperimental
         loading={false}
@@ -118,7 +125,7 @@ describe('DownloadHero', () => {
     const onSelectBuild = vi.fn()
     render(
       <DownloadHero
-        builds={[release, nightly]}
+        builds={[release, beta]}
         hasRelease
         includeExperimental
         loading={false}
@@ -131,7 +138,7 @@ describe('DownloadHero', () => {
     fireEvent.click(screen.getByRole('button', { name: /Choose a different build/i }))
     const options = screen.getAllByRole('menuitemradio')
     expect(options).toHaveLength(2)
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Nightly build/i }))
-    expect(onSelectBuild).toHaveBeenCalledWith(nightly.id)
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /Beta build/i }))
+    expect(onSelectBuild).toHaveBeenCalledWith(beta.id)
   })
 })

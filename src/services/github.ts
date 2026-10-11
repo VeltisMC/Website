@@ -7,7 +7,11 @@ import type {
   VersionReleases,
 } from '../types/release'
 import { siteConfig } from '../config/site'
-import { RELEASE_CHANNEL_IDS, isReleaseChannel } from '../config/channels'
+import {
+  RELEASE_CHANNEL_IDS,
+  canonicalChannel,
+  isReleaseChannel,
+} from '../config/channels'
 import { githubAssetName } from './releaseValidation'
 
 const CHANNELS: readonly ReleaseChannel[] = RELEASE_CHANNEL_IDS
@@ -15,15 +19,17 @@ const CHANNELS: readonly ReleaseChannel[] = RELEASE_CHANNEL_IDS
 /**
  * The published filename, parsed so a GitHub-release-only fallback can recover
  * the same facts the metadata file carries. Two spellings exist for one name:
- * the human `Veltis 26.3 nightly aaa8824.jar`, and the form GitHub stores,
- * `Veltis.26.3.nightly.aaa8824.jar` — GitHub normalizes every release asset
- * name, so the releases API only ever returns the dotted one.
+ * the human `Veltis 26.3 pre-alpha aaa8824.jar`, and the form GitHub stores,
+ * `Veltis.26.3.pre-alpha.aaa8824.jar` — GitHub normalizes every release asset
+ * name, so the releases API only ever returns the dotted one. `stable` is still
+ * accepted: it is the legacy name for `release` and older builds published under
+ * it must stay readable. `nightly` is not: it was never a supported channel.
  */
 const ARTIFACT_PATTERN =
-  /^Veltis[ .](.+?)[ .](pre-alpha|alpha|beta|release|nightly|stable)[ .]([0-9a-f]{7})\.jar$/
+  /^Veltis[ .](.+?)[ .](pre-alpha|alpha|beta|release|stable)[ .]([0-9a-f]{7})\.jar$/
 
 /** The release tag CI writes: `veltis-<channel>-<minecraft>-<sha>`. */
-const TAG_PATTERN = /^veltis-(pre-alpha|alpha|beta|release|nightly|stable)-(.+)-([0-9a-f]{7})$/
+const TAG_PATTERN = /^veltis-(pre-alpha|alpha|beta|release|stable)-(.+)-([0-9a-f]{7})$/
 
 export interface ReleaseFetchResult {
   versions: Record<string, VersionReleases>
@@ -38,11 +44,12 @@ function commitUrl(commit: string): string {
 /** Turns one channel-metadata entry into the shape the download UI renders. */
 function fromChannelRelease(release: ChannelRelease): BuildInfo {
   const short = release.shortCommit || release.commit.slice(0, 7)
-  // The release stores the asset under `assetName` (GitHub folds the spaces of
-  // `artifact` into dots); that is the file the download URL serves, so it is
-  // the filename the UI shows. Older payloads without it fall back to `artifact`.
-  const artifact =
-    release.assetName && release.assetName.length > 0 ? release.assetName : release.artifact
+  // The canonical human filename is `artifact` — the spaced
+  // `Veltis <Minecraft> <Channel> <sha>.jar` the release is titled with. That is
+  // what the button shows and what a person copies into a command line.
+  // `assetName` is the same file as GitHub stores it (spaces folded to dots)
+  // and is validated elsewhere, but it is never presented as the artifact name.
+  const artifact = release.artifact
   return {
     id: release.commit || release.artifact,
     version: release.version,
@@ -62,14 +69,8 @@ function fromChannelRelease(release: ChannelRelease): BuildInfo {
         ? `Java ${release.minimumJavaVersion}+`
         : siteConfig.javaRequirement,
     changes: [],
-    isPrerelease: CHANNEL_PRERELEASE(release.channel),
+    isPrerelease: canonicalChannel(release.channel) !== 'release',
   }
-}
-
-function CHANNEL_PRERELEASE(channel: ReleaseChannel): boolean {
-  // Kept local so the service does not depend on the presentation module at
-  // runtime; the canonical answer lives in config/channels.
-  return channel !== 'release' && channel !== 'stable'
 }
 
 /**
@@ -154,7 +155,10 @@ function parseGitHubRelease(release: GitHubRelease): BuildInfo | null {
   const fromAsset = jar ? ARTIFACT_PATTERN.exec(jar.name) : null
   const fromTag = TAG_PATTERN.exec(tag)
 
-  const channel = fromAsset?.[2] ?? fromTag?.[1] ?? (release.prerelease ? 'nightly' : 'stable')
+  const channel = fromAsset?.[2] ?? fromTag?.[1]
+  // A GitHub Release carries no channel of its own, and no inference from
+  // `prerelease` or the tag is ever made: when the asset or tag does not name a
+  // supported channel, the release is not offered rather than being guessed.
   if (!isReleaseChannel(channel)) return null
 
   const minecraftVersion = fromAsset?.[1] ?? fromTag?.[2] ?? siteConfig.defaultMinecraftVersion
@@ -271,9 +275,10 @@ function groupBuildsByVersion(builds: BuildInfo[]): Record<string, VersionReleas
   for (const entry of Object.values(versions)) {
     // Most recent first; the publication time is the only ordering we can trust.
     entry.builds.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
-    entry.latestStable = entry.builds.find((b) => b.channel === 'release' || b.channel === 'stable')
-    entry.latestBeta = entry.builds.find((b) => b.channel === 'beta')
-    entry.latestNightly = entry.builds.find((b) => b.channel === 'nightly')
+    entry.latestRelease = entry.builds.find(
+      (b) => canonicalChannel(b.channel) === 'release',
+    )
+    entry.latestBeta = entry.builds.find((b) => canonicalChannel(b.channel) === 'beta')
   }
 
   return versions
