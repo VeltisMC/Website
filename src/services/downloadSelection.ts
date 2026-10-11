@@ -18,8 +18,8 @@ export function byNewest(builds: BuildInfo[]): BuildInfo[] {
 
 /**
  * The builds a visitor may currently pick from. When experimental builds are
- * hidden, only the official release line remains — a nightly is never offered
- * as if it were a release.
+ * hidden, only the official release line remains — an experimental build is
+ * never offered as if it were a release.
  */
 export function eligibleBuilds(builds: BuildInfo[], includeExperimental: boolean): BuildInfo[] {
   const sorted = byNewest(builds)

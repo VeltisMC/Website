@@ -4,6 +4,7 @@ import { siteConfig } from '../config/site'
 import { fetchReleases } from '../services/github'
 import type { BuildInfo } from '../types/release'
 import Badge from '../components/common/Badge'
+import ChannelBadge from '../components/common/ChannelBadge'
 
 export default function ChangelogPage() {
   const [builds, setBuilds] = useState<BuildInfo[]>([])
@@ -71,17 +72,7 @@ export default function ChangelogPage() {
                     <h3 className="text-lg font-bold text-white font-mono">
                       Veltis {build.minecraftVersion} {build.commitHash}
                     </h3>
-                    <Badge
-                      variant={
-                        build.channel === 'stable'
-                          ? 'emerald'
-                          : build.channel === 'beta'
-                            ? 'cyan'
-                            : 'amber'
-                      }
-                    >
-                      {build.channel.toUpperCase()}
-                    </Badge>
+                    <ChannelBadge channel={build.channel} />
                     <span className="text-xs font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded">
                       MC {build.minecraftVersion}
                     </span>

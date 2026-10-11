@@ -66,21 +66,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://www.veltismc.org/architecture</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://www.veltismc.org/shulker</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://www.veltismc.org/roadmap</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
     <loc>https://www.veltismc.org/community</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

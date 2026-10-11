@@ -166,7 +166,7 @@ export function validateReleasePayload(
   // 2. Channel must be explicitly supported.
   const channelRaw = metadata.channel
   if (!accept(channelRaw)) {
-    fail('metadata.channel', 'is not a supported channel', 'pre-alpha|alpha|beta|release|nightly|stable', String(channelRaw))
+    fail('metadata.channel', 'is not a supported channel', 'pre-alpha|alpha|beta|release|stable', String(channelRaw))
     return { ok: false, issues }
   }
   const channel = channelRaw

@@ -9,17 +9,18 @@
  * class for.
  *
  * <p>The taxonomy the organisation publishes under is `pre-alpha`, `alpha`,
- * `beta` and `release`. Two older identifiers are kept alongside them because
- * the build pipeline already published under them and their history must stay
- * readable:
+ * `beta` and `release`. One older identifier is kept alongside them because the
+ * build pipeline already published under it and its history must stay readable:
  *
- *   * `nightly` is a channel of its own. It is NOT renamed to `alpha`, and a
- *     nightly build is never presented as stable. Its existing amber identity is
- *     preserved.
  *   * `stable` is the earlier name for an official release. `stable` and
  *     `release` are aliases of one concept, so `stable` maps to the canonical
  *     `release` for grouping and display while the raw stored value is never
  *     rewritten.
+ *
+ * <p>`nightly` is deliberately absent. It was never a supported current channel
+ * and is not renamed into one: a build that used it stays reachable through the
+ * original GitHub Releases, but it is not a channel the site offers, filters on
+ * or presents as a downloadable build.
  */
 
 /** Every channel identifier the site will accept from stored metadata. */
@@ -28,8 +29,7 @@ export type ReleaseChannel =
   | 'alpha'
   | 'beta'
   | 'release'
-  // Legacy identifiers, retained for backwards compatibility.
-  | 'nightly'
+  // Legacy identifier, retained for backwards compatibility only.
   | 'stable'
 
 export interface ChannelDefinition {
@@ -61,9 +61,9 @@ export interface ChannelDefinition {
 /**
  * The registry, in display order (most experimental first). The requested
  * colours are used exactly: pre-alpha `#8B0000`, alpha `#EF4444`, beta
- * `#FACC15`, release `#A855F7`. The two legacy identifiers keep the identities
- * the site already used so existing history is not recoloured into a different
- * meaning.
+ * `#FACC15`, release `#A855F7`. The legacy `stable` identifier keeps the
+ * identity the site already used so existing history is not recoloured into a
+ * different meaning.
  */
 export const CHANNELS: readonly ChannelDefinition[] = [
   {
@@ -91,18 +91,6 @@ export const CHANNELS: readonly ChannelDefinition[] = [
     order: 1,
   },
   {
-    id: 'nightly',
-    label: 'Nightly',
-    shortLabel: 'Nightly',
-    description: 'Legacy nightly channel. Bleeding-edge builds, published automatically.',
-    color: '#F59E0B',
-    textColor: '#1C1917',
-    prerelease: true,
-    canonical: 'nightly',
-    legacy: true,
-    order: 2,
-  },
-  {
     id: 'beta',
     label: 'Beta',
     shortLabel: 'Beta',
@@ -112,7 +100,7 @@ export const CHANNELS: readonly ChannelDefinition[] = [
     prerelease: true,
     canonical: 'beta',
     legacy: false,
-    order: 3,
+    order: 2,
   },
   {
     id: 'release',
@@ -124,7 +112,7 @@ export const CHANNELS: readonly ChannelDefinition[] = [
     prerelease: false,
     canonical: 'release',
     legacy: false,
-    order: 4,
+    order: 3,
   },
   {
     id: 'stable',
@@ -136,7 +124,7 @@ export const CHANNELS: readonly ChannelDefinition[] = [
     prerelease: false,
     canonical: 'release',
     legacy: true,
-    order: 5,
+    order: 4,
   },
 ]
 
@@ -149,7 +137,8 @@ export const CHANNEL_IDS: readonly ReleaseChannel[] = CHANNELS.map((c) => c.id)
 
 /**
  * Identifiers the download page reads per-channel metadata files for. Ordered
- * so the most relevant channel file is fetched first.
+ * so the most relevant channel file is fetched first. `stable` is included so a
+ * legacy file that was already published still reads.
  */
 export const RELEASE_CHANNEL_IDS: readonly ReleaseChannel[] = CHANNELS.map((c) => c.id)
 
@@ -157,6 +146,18 @@ export const RELEASE_CHANNEL_IDS: readonly ReleaseChannel[] = CHANNELS.map((c) =
 export const PRIMARY_CHANNELS: readonly ChannelDefinition[] = CHANNELS.filter(
   (c) => !c.legacy,
 )
+
+/**
+ * True for the identifiers a new build may be published under — the four
+ * current channels. `stable` is excluded: it is read, never produced.
+ */
+export function isCurrentChannel(value: unknown): value is ReleaseChannel {
+  return (
+    typeof value === 'string' &&
+    value in BY_ID &&
+    !BY_ID[value].legacy
+  )
+}
 
 export function isReleaseChannel(value: unknown): value is ReleaseChannel {
   return typeof value === 'string' && value in BY_ID

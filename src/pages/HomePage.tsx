@@ -23,8 +23,8 @@ export default function HomePage() {
   useEffect(() => {
     fetchReleases().then((res) => {
       const verObj = res.versions[siteConfig.defaultMinecraftVersion]
-      if (verObj && verObj.latestStable) {
-        setLatestBuild(verObj.latestStable)
+      if (verObj && verObj.latestRelease) {
+        setLatestBuild(verObj.latestRelease)
       } else if (verObj && verObj.builds.length > 0) {
         setLatestBuild(verObj.builds[0])
       }

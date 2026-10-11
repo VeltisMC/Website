@@ -1,0 +1,51 @@
+name: Website CI
+
+# The website's own CI gate. It runs on every pull request against `main` and on
+# every push to `main`, and it can be dispatched explicitly on any branch.
+#
+# The release-sync workflow creates its metadata PR with GITHUB_TOKEN, which does
+# not re-trigger `pull_request` runs, so it calls this workflow with
+# `workflow_dispatch` on the metadata branch; that dispatch always runs and
+# reports the CI check on the branch head, satisfying the protected-branch
+# required check.
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test

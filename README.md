@@ -9,13 +9,12 @@ Official website and developer portal for **Veltis**, the optimization-focused M
 ## Features
 
 - **Developer-Centric Visual Identity:** Deep charcoal/near-black theme with electric violet accents, geometric typography, and zero SaaS fluff.
-- **PaperMC-Inspired Downloads:** Compact build browser with Minecraft version tabs, Stable/Beta/Nightly channel toggle, direct JAR downloads, and SHA-256 copy action.
-- **Release Metadata Sync:** A `veltis-release` repository event from `VeltisMC/Veltis` writes the published build into `public/releases/<channel>.json`; the download page reads that first, falls back to the GitHub releases API, and never fabricates a build when neither is available.
+- **PaperMC-Inspired Downloads:** Compact build browser with Minecraft version tabs, a pre-alpha/alpha/beta/release channel toggle, direct JAR downloads, and SHA-256 copy action.
+- **Release Metadata Sync:** A `veltis-release` repository event from `VeltisMC/Veltis` validates the published build's metadata and stages it as a pull request into `public/releases/<channel>.json`; the download page reads that first, falls back to the GitHub releases API, and never fabricates a build when neither is available.
 - **Searchable Documentation:** Complete multi-section documentation covering Getting Started, Server Administration, System Architecture, and Migration.
 - **Global Command Palette (`Ctrl+K` / `⌘K`):** Instant client-side search across documentation articles, subheadings, and site pages.
 - **Developer Portal:** Proposed native capability-based plugin API specification, multithreading guidelines, and Gradle/Maven setup examples.
-- **Architecture & Shulker Deep-Dive:** Interactive SVG system topology map and comprehensive guide to the Shulker patch engine.
-- **Roadmap & Community Hub:** Filterable milestone board, contribution instructions, changelog timeline, and GPL-3.0 license statement.
+- **Community Hub:** Contribution instructions, changelog timeline, and GPL-3.0 license statement.
 - **Vercel-Ready Deployment:** Client-side SPA routing (`vercel.json`), semantic markup, Open Graph tags, `robots.txt`, and `sitemap.xml`.
 
 ---
@@ -35,8 +34,11 @@ Official website and developer portal for **Veltis**, the optimization-focused M
 
 The server repository builds and publishes each release, then sends this site a
 `veltis-release` repository event. `.github/workflows/sync-release.yml` validates
-the payload, writes `public/releases/<channel>.json` (latest build plus capped
-history for that channel only), and commits. Vercel redeploys on the push.
+the payload, stages `public/releases/<channel>.json` (latest build plus capped
+history for that channel only) on a dedicated `release-metadata/<channel>`
+branch, opens a pull request against `main`, and lets the protected-branch rules
+decide when the metadata lands. Vercel deploys a preview for the PR and the
+production site on merge.
 
 At read time the download page prefers those files, falls back to the GitHub
 releases API, and finally shows an honest "no published releases" state. It never
@@ -44,9 +46,16 @@ invents a version, a filename, or a download URL.
 
 ### Required setup
 
+- `main` must be a protected branch with a required status check named `CI`
+  (from `.github/workflows/website-ci.yml`) and, if desired, a required review.
+  The sync workflow never disables or bypasses those rules.
+- The `release-metadata/*` branch prefix must be writable by the workflow's
+  `GITHUB_TOKEN` (it is not itself protected).
 - The server repository must be granted a token that can send `repository_dispatch`
-  to this repository (`contents: write`). This workflow writes with the
-  repository's own `GITHUB_TOKEN`; only the sender needs a secret.
+  to this repository. Only the sender needs a secret; this workflow runs entirely
+  on its own `GITHUB_TOKEN`, with no repository secret.
+- The metadata commit is signed by GitHub through the GraphQL
+  `createCommitOnBranch` mutation, so it shows as *Verified* without GPG.
 - No repository files under `public/releases/` should be edited by hand.
 
 ---
@@ -105,7 +114,7 @@ export const siteConfig = {
   github: 'https://github.com/VeltisMC/Veltis',
   discord: 'https://discord.com/invite/239MkjVmZw',
   defaultMinecraftVersion: '26.3',
-  javaRequirement: 'Java 25+ (JDK 26)',
+  javaRequirement: 'Java 25+',
   ...
 }
 ```

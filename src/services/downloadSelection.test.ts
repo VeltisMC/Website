@@ -16,7 +16,7 @@ function build(partial: Partial<BuildInfo> & { id: string; channel: BuildInfo['c
     commitHash: '3077e84',
     commitMessage: 'build',
     downloadUrl: 'https://github.com/VeltisMC/Veltis/releases/download/tag/file.jar',
-    artifact: 'Veltis 26.3 nightly 3077e84.jar',
+    artifact: 'Veltis 26.3 pre-alpha 3077e84.jar',
     javaRequirement: 'Java 25+',
     changes: [],
     isPrerelease: partial.channel !== 'release' && partial.channel !== 'stable',
@@ -26,38 +26,38 @@ function build(partial: Partial<BuildInfo> & { id: string; channel: BuildInfo['c
 
 const release = build({ id: 'r', channel: 'release', publishedAt: '2026-10-09T00:00:00Z' })
 const stable = build({ id: 's', channel: 'stable', publishedAt: '2026-10-01T00:00:00Z' })
-const nightly = build({ id: 'n', channel: 'nightly', publishedAt: '2026-10-10T00:00:00Z' })
 const preAlpha = build({ id: 'p', channel: 'pre-alpha', publishedAt: '2026-10-11T00:00:00Z' })
+const beta = build({ id: 'b', channel: 'beta', publishedAt: '2026-10-08T00:00:00Z' })
 
 describe('download selection', () => {
   it('treats release and its legacy alias stable as the official line', () => {
     expect(isOfficialRelease(release)).toBe(true)
     expect(isOfficialRelease(stable)).toBe(true)
-    expect(isOfficialRelease(nightly)).toBe(false)
     expect(isOfficialRelease(preAlpha)).toBe(false)
+    expect(isOfficialRelease(beta)).toBe(false)
   })
 
   it('hides experimental builds until they are requested', () => {
-    const all = [nightly, release, preAlpha]
+    const all = [preAlpha, release, beta]
     expect(eligibleBuilds(all, false).map((b) => b.id)).toEqual(['r'])
-    expect(eligibleBuilds(all, true).map((b) => b.id)).toEqual(['p', 'n', 'r'])
+    expect(eligibleBuilds(all, true).map((b) => b.id)).toEqual(['p', 'r', 'b'])
   })
 
   it('selects the newest eligible build, newest first by publication time', () => {
-    expect(primaryBuild([release, stable, nightly], false)?.id).toBe('r')
-    expect(primaryBuild([release, stable, nightly], true)?.id).toBe('n')
+    expect(primaryBuild([release, stable, beta], false)?.id).toBe('r')
+    expect(primaryBuild([release, preAlpha], true)?.id).toBe('p')
   })
 
   it('does not promote an experimental build while experimental builds are hidden', () => {
     // No release exists: with the toggle off there is nothing to offer.
-    expect(primaryBuild([nightly, preAlpha], false)).toBeUndefined()
-    // With the toggle on, the newest experimental build is offered (never labelled stable).
-    expect(primaryBuild([nightly, preAlpha], true)?.id).toBe('p')
+    expect(primaryBuild([preAlpha, beta], false)).toBeUndefined()
+    // With the toggle on, the newest experimental build is offered (never labelled release).
+    expect(primaryBuild([preAlpha, beta], true)?.id).toBe('p')
   })
 
   it('reports whether any official release exists', () => {
-    expect(hasOfficialRelease([nightly])).toBe(false)
-    expect(hasOfficialRelease([nightly, release])).toBe(true)
+    expect(hasOfficialRelease([preAlpha])).toBe(false)
+    expect(hasOfficialRelease([preAlpha, release])).toBe(true)
     expect(hasOfficialRelease([stable])).toBe(true)
   })
 })

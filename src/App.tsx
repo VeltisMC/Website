@@ -11,9 +11,6 @@ const CommunityPage = lazy(() => import('./pages/CommunityPage'))
 const ContributingPage = lazy(() => import('./pages/ContributingPage'))
 const ChangelogPage = lazy(() => import('./pages/ChangelogPage'))
 const LicensePage = lazy(() => import('./pages/LicensePage'))
-const RoadmapPage = lazy(() => import('./pages/RoadmapPage'))
-const ShulkerPage = lazy(() => import('./pages/ShulkerPage'))
-const ArchitecturePage = lazy(() => import('./pages/ArchitecturePage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 function RouteFallback() {
@@ -44,9 +41,6 @@ export default function App() {
             <Route path="/contributing" element={<ContributingPage />} />
             <Route path="/changelog" element={<ChangelogPage />} />
             <Route path="/license" element={<LicensePage />} />
-            <Route path="/roadmap" element={<RoadmapPage />} />
-            <Route path="/shulker" element={<ShulkerPage />} />
-            <Route path="/architecture" element={<ArchitecturePage />} />
 
             {/* 404 Catch-All */}
             <Route path="*" element={<NotFoundPage />} />
