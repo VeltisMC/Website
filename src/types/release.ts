@@ -1,10 +1,13 @@
 /**
- * The release channels Veltis publishes. These are the exact names the build's
- * `channel` value can take (`gradle.properties`, overridable with `-Pchannel`),
- * and the names the server repository sends in its release metadata. They are
- * never inferred from a commit or a branch.
+ * The release channels Veltis publishes. The canonical channel model and its
+ * presentation live in `src/config/channels.ts`; this re-export keeps the type
+ * available to the release types without duplicating the list of names.
+ *
+ * A channel is never inferred from a commit, a branch, a version suffix or a
+ * commit's age — it is read from the metadata the build published.
  */
-export type ReleaseChannel = 'stable' | 'beta' | 'nightly'
+export type { ReleaseChannel } from '../config/channels'
+import type { ReleaseChannel } from '../config/channels'
 
 export interface BuildInfo {
   /** Unique per build. The source revision identifies it, so it is stable. */
@@ -67,9 +70,10 @@ export interface GitHubRelease {
  * One build's publication metadata, exactly as the Veltis repository's CI
  * dispatches it and as this site stores it at `/releases/<channel>.json`.
  *
- * `artifact` is the GitHub download filename; `distributionArtifact` is the
- * constant local name (`veltis.jar`) the build produced before CI renamed it.
- * Both are kept because they are different facts about the same build.
+ * `artifact` is the human release title (`Veltis 26.3 nightly 3077e84.jar`);
+ * `distributionArtifact` is the constant local name (`veltis.jar`) the build
+ * produced before CI renamed it; `assetName` is the name GitHub actually stores
+ * the asset under. All three are different facts about the same build.
  */
 export interface ChannelRelease {
   channel: ReleaseChannel

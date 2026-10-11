@@ -13,13 +13,7 @@ export const siteConfig = {
   license: 'GPL-3.0',
   defaultMinecraftVersion: '26.3',
   supportedMinecraftVersions: ['26.3'],
-  javaRequirement: 'Java 25+ (JDK 26)',
-  /**
-   * The release channels, in display order. These mirror the server build's
-   * `channel` property and the names its release metadata carries; the download
-   * page reads one metadata file per channel from {@link releasesBasePath}.
-   */
-  releaseChannels: ['stable', 'beta', 'nightly'],
+  javaRequirement: 'Java 25+',
   releasesBasePath: '/releases',
 } as const
 

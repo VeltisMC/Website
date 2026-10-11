@@ -7,8 +7,10 @@ import type {
   VersionReleases,
 } from '../types/release'
 import { siteConfig } from '../config/site'
+import { RELEASE_CHANNEL_IDS, isReleaseChannel } from '../config/channels'
+import { githubAssetName } from './releaseValidation'
 
-const CHANNELS: readonly ReleaseChannel[] = siteConfig.releaseChannels
+const CHANNELS: readonly ReleaseChannel[] = RELEASE_CHANNEL_IDS
 
 /**
  * The published filename, parsed so a GitHub-release-only fallback can recover
@@ -18,19 +20,15 @@ const CHANNELS: readonly ReleaseChannel[] = siteConfig.releaseChannels
  * name, so the releases API only ever returns the dotted one.
  */
 const ARTIFACT_PATTERN =
-  /^Veltis[ .](.+?)[ .](stable|beta|nightly)[ .]([0-9a-f]{7})\.jar$/
+  /^Veltis[ .](.+?)[ .](pre-alpha|alpha|beta|release|nightly|stable)[ .]([0-9a-f]{7})\.jar$/
 
 /** The release tag CI writes: `veltis-<channel>-<minecraft>-<sha>`. */
-const TAG_PATTERN = /^veltis-(stable|beta|nightly)-(.+)-([0-9a-f]{7})$/
+const TAG_PATTERN = /^veltis-(pre-alpha|alpha|beta|release|nightly|stable)-(.+)-([0-9a-f]{7})$/
 
 export interface ReleaseFetchResult {
   versions: Record<string, VersionReleases>
   isLiveGitHubData: boolean
   sourceNote: string
-}
-
-function isReleaseChannel(value: unknown): value is ReleaseChannel {
-  return typeof value === 'string' && (CHANNELS as readonly string[]).includes(value)
 }
 
 function commitUrl(commit: string): string {
@@ -59,12 +57,19 @@ function fromChannelRelease(release: ChannelRelease): BuildInfo {
     artifact,
     releaseUrl: release.releaseUrl,
     size: release.size,
-    javaRequirement: release.minimumJavaVersion
-      ? `Java ${release.minimumJavaVersion}+`
-      : siteConfig.javaRequirement,
+    javaRequirement:
+      typeof release.minimumJavaVersion === 'number'
+        ? `Java ${release.minimumJavaVersion}+`
+        : siteConfig.javaRequirement,
     changes: [],
-    isPrerelease: release.channel !== 'stable',
+    isPrerelease: CHANNEL_PRERELEASE(release.channel),
   }
+}
+
+function CHANNEL_PRERELEASE(channel: ReleaseChannel): boolean {
+  // Kept local so the service does not depend on the presentation module at
+  // runtime; the canonical answer lives in config/channels.
+  return channel !== 'release' && channel !== 'stable'
 }
 
 /**
@@ -76,17 +81,28 @@ function fromChannelRelease(release: ChannelRelease): BuildInfo {
 function isValidChannelRelease(value: unknown): value is ChannelRelease {
   if (typeof value !== 'object' || value === null) return false
   const r = value as Record<string, unknown>
-  return (
-    isReleaseChannel(r.channel) &&
-    typeof r.version === 'string' && r.version.length > 0 &&
-    typeof r.minecraftVersion === 'string' && r.minecraftVersion.length > 0 &&
-    typeof r.commit === 'string' && /^[0-9a-f]{40}$/.test(r.commit) &&
-    typeof r.shortCommit === 'string' && r.shortCommit === r.commit.slice(0, 7) &&
-    typeof r.artifact === 'string' && r.artifact.length > 0 &&
-    r.distributionArtifact === 'veltis.jar' &&
-    typeof r.downloadUrl === 'string' && /^https:\/\//.test(r.downloadUrl) &&
-    typeof r.publishedAt === 'string' && r.publishedAt.length > 0
-  )
+  if (
+    !(
+      isReleaseChannel(r.channel) &&
+      typeof r.version === 'string' && r.version.length > 0 &&
+      typeof r.minecraftVersion === 'string' && r.minecraftVersion.length > 0 &&
+      typeof r.commit === 'string' && /^[0-9a-f]{40}$/.test(r.commit) &&
+      typeof r.shortCommit === 'string' && r.shortCommit === r.commit.slice(0, 7) &&
+      typeof r.artifact === 'string' && r.artifact.length > 0 &&
+      r.distributionArtifact === 'veltis.jar' &&
+      typeof r.downloadUrl === 'string' && /^https:\/\//.test(r.downloadUrl) &&
+      typeof r.publishedAt === 'string' && r.publishedAt.length > 0
+    )
+  ) {
+    return false
+  }
+  // The stored entry may carry assetName; when it does it must be the GitHub
+  // form of `artifact`. This keeps a hand-edited file from mixing the two.
+  if (r.assetName !== undefined) {
+    if (typeof r.assetName !== 'string' || r.assetName.length === 0) return false
+    if (r.assetName !== githubAssetName(r.artifact)) return false
+  }
+  return true
 }
 
 async function fetchChannelFile(channel: ReleaseChannel): Promise<ChannelReleaseFile | null> {
@@ -253,8 +269,9 @@ function groupBuildsByVersion(builds: BuildInfo[]): Record<string, VersionReleas
   }
 
   for (const entry of Object.values(versions)) {
+    // Most recent first; the publication time is the only ordering we can trust.
     entry.builds.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
-    entry.latestStable = entry.builds.find((b) => b.channel === 'stable')
+    entry.latestStable = entry.builds.find((b) => b.channel === 'release' || b.channel === 'stable')
     entry.latestBeta = entry.builds.find((b) => b.channel === 'beta')
     entry.latestNightly = entry.builds.find((b) => b.channel === 'nightly')
   }

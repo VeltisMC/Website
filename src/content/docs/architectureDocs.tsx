@@ -1,25 +1,23 @@
 import type { DocArticle } from '../../types/docs'
-import CodeBlock from '../../components/common/CodeBlock'
 
 export const architectureDocs: DocArticle[] = [
   {
     slug: 'overview',
     title: 'Architecture Overview',
-    description: 'Deconstructing the Veltis high-performance server runtime, scheduler partitions, and patch layer.',
+    description: 'How the Veltis server runtime is assembled from the decompiled vanilla server and the Shulker patch set.',
     section: 'Architecture',
     order: 1,
     headings: [
       { id: 'runtime-subsystems', title: 'Subsystem Hierarchy', level: 2 },
-      { id: 'tick-pipeline', title: 'The Partitioned Tick Pipeline', level: 2 },
-      { id: 'memory-layout', title: 'Memory Architecture & Off-Heap Buffers', level: 2 },
-      { id: 'safety-invariants', title: 'Concurrency Safety Invariants', level: 2 },
+      { id: 'tick-pipeline', title: 'The Game Loop', level: 2 },
+      { id: 'memory-layout', title: 'Memory & Buffers', level: 2 },
     ],
     content: () => (
       <div className="space-y-6">
         <p className="text-slate-300 leading-relaxed text-lg">
-          The classical Minecraft server model executes the entire world state sequentially on a single thread. Veltis
-          replaces this paradigm with an architecture that decouples independent game systems, isolates I/O boundaries,
-          and processes non-interfering entities concurrently.
+          Veltis is the decompiled vanilla Minecraft server with a reviewed set of patches applied on
+          top. It keeps a single authoritative game thread for world state, and changes only what the
+          patch set changes — not the whole execution model.
         </p>
 
         <h2 id="runtime-subsystems" className="text-2xl font-bold text-white pt-6 border-t border-white/5">
@@ -33,55 +31,61 @@ export const architectureDocs: DocArticle[] = [
         +----------------------+----------------------+
         |                                             |
 +-------v---------------+                     +-------v---------------+
-|  Shulker Patch Engine |                     |  Native Plugin Runtime|
-|  (Vanilla AST Layer)  |                     |  (Capability Model)   |
+|  Shulker Patch Engine |                     |   veltis-api module   |
+|  (Git patch set)      |                     |   (placeholder)       |
 +-------+---------------+                     +-------+---------------+
         |                                             |
 +-------v---------------------------------------------v-------+
-|                 Parallel Tick Coordination Engine           |
-|         - World Sub-tick Partitions                         |
-|         - Entity Behavior Task Graph                        |
-|         - Spatial Hashing & Collision Quadtree              |
+|             Patched vanilla server runtime                  |
+|         - Single authoritative game thread                  |
+|         - Region-based world engine                         |
+|         - Netty networking                                  |
 +------------------------------+------------------------------+
                                |
         +----------------------+----------------------+
         |                                             |
 +-------v---------------+                     +-------v---------------+
-| Non-blocking Chunk IO |                     | Netty Buffer Recycling|
-| (Virtual Threads)     |                     | (Zero-alloc Network)  |
+| Ancillary async tasks |                     | Netty packet I/O      |
+| (virtual threads)     |                     | (worker threads)      |
 +-----------------------+                     +-----------------------+`}
         </div>
+        <p className="text-xs text-slate-500">
+          <code>veltis-api</code> is an empty boundary module today; no plugin API ships.
+        </p>
 
         <h2 id="tick-pipeline" className="text-2xl font-bold text-white pt-6 border-t border-white/5">
-          The Partitioned Tick Pipeline
+          The Game Loop
         </h2>
         <p className="text-slate-300 leading-relaxed">
-          Each 50ms tick cycle in Veltis is structured into distinct phases with explicit synchronization barriers:
+          Entity ticking, block physics and redstone run in order on the main thread, as the game
+          requires. Around that loop:
         </p>
-        <ol className="list-decimal pl-6 space-y-2 text-slate-300">
+        <ul className="list-disc pl-6 space-y-2 text-slate-300">
           <li>
-            <strong className="text-white">Network Ingestion:</strong> Inbound packets are deserialized off-thread into immutable event representations.
+            <strong className="text-white">Networking</strong> runs on Netty worker threads.
           </li>
           <li>
-            <strong className="text-white">World Spatial Partitioning:</strong> Chunks are mapped into non-overlapping spatial domains.
+            <strong className="text-white">Ancillary asynchronous tasks</strong> run on virtual
+            threads rather than occupying a platform thread each.
           </li>
           <li>
-            <strong className="text-white">Concurrent Entity Execution:</strong> Independent entity AI and movement calculations run in parallel worker pools.
+            <strong className="text-white">Off-thread packet compression</strong> is an optional
+            optimisation, disabled by default.
           </li>
-          <li>
-            <strong className="text-white">Main-Thread State Harmonization:</strong> Inter-chunk block mutations, redstone propagations, and cross-entity interactions commit sequentially.
-          </li>
-          <li>
-            <strong className="text-white">Asynchronous Flush:</strong> Chunk dirty pages and outbound packets are dispatched to background I/O threads.
-          </li>
-        </ol>
+        </ul>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          Partitioning entity and pathfinding execution across worker pools is a roadmap item. It is
+          not implemented in current builds.
+        </p>
 
         <h2 id="memory-layout" className="text-2xl font-bold text-white pt-6 border-t border-white/5">
-          Memory Architecture & Off-Heap Buffers
+          Memory &amp; Buffers
         </h2>
         <p className="text-slate-300 leading-relaxed">
-          Veltis leverages direct byte buffer pools managed outside of the JVM garbage-collected heap for network packet serialization.
-          This prevents multi-megabyte heap churn caused by high-rate chunk packet emissions to dozens of connected players simultaneously.
+          Veltis does not publish memory or allocation figures, because none have been benchmarked and
+          reproduced. The patch set includes targeted allocation reductions (for example caching
+          static collision shapes), and each is described by its patch rather than by a headline
+          number.
         </p>
       </div>
     ),
@@ -89,46 +93,54 @@ export const architectureDocs: DocArticle[] = [
   {
     slug: 'concurrency-model',
     title: 'Concurrency Model & Safety',
-    description: 'Deep dive into thread boundaries, spatial partitioning, and lock-free data structures in Veltis.',
+    description: 'The thread boundaries Veltis actually enforces, and what is still on the roadmap.',
     section: 'Architecture',
     order: 2,
     headings: [
-      { id: 'spatial-partitioning', title: 'Spatial Chunk Partitioning', level: 2 },
-      { id: 'lock-free-structures', title: 'Lock-Free Entity Tracking', level: 2 },
-      { id: 'virtual-threads', title: 'Virtual Threads for Chunk I/O', level: 2 },
+      { id: 'thread-boundaries', title: 'Thread Boundaries', level: 2 },
+      { id: 'world-engine', title: 'Region-Based World Engine', level: 2 },
+      { id: 'virtual-threads', title: 'Virtual Threads', level: 2 },
     ],
     content: () => (
       <div className="space-y-6">
         <p className="text-slate-300 leading-relaxed">
-          Concurrent execution in a game server is only viable if state mutations are mathematically isolated to prevent race conditions.
-          Veltis achieves this through spatial chunk partitioning.
+          Concurrency in a game server is only safe if state mutations are isolated. Veltis takes the
+          conservative route: world state has a single writer.
         </p>
 
-        <h2 id="spatial-partitioning" className="text-2xl font-bold text-white pt-6 border-t border-white/5">
-          Spatial Chunk Partitioning
+        <h2 id="thread-boundaries" className="text-2xl font-bold text-white pt-6 border-t border-white/5">
+          Thread Boundaries
+        </h2>
+        <ul className="list-disc pl-6 space-y-2 text-slate-300">
+          <li>
+            <strong className="text-white">Main game thread:</strong> owns world state; runs entity
+            ticks, block physics and redstone in order.
+          </li>
+          <li>
+            <strong className="text-white">Netty worker threads:</strong> decode inbound packets and
+            encode outbound packets.
+          </li>
+          <li>
+            <strong className="text-white">Virtual threads:</strong> run ancillary asynchronous tasks.
+          </li>
+        </ul>
+
+        <h2 id="world-engine" className="text-2xl font-bold text-white pt-6 border-t border-white/5">
+          Region-Based World Engine
         </h2>
         <p className="text-slate-300 leading-relaxed">
-          Worlds are divided into a 2D grid of sectors. Entities contained strictly within non-adjacent sectors can execute their
-          pathfinding, physics, and goal evaluators in parallel without lock contention.
+          The world engine is organised around regions rather than a lock-free grid of parallel tick
+          partitions. Independent entity execution across spatial worker pools is a roadmap item, not
+          a shipped feature.
         </p>
-        <CodeBlock
-          code={`// Conceptual Partition Barrier (Veltis Kernel)
-SectorPartition partitionA = world.getPartition(0, 0);
-SectorPartition partitionB = world.getPartition(2, 2);
-
-// Executes safely on distinct worker threads
-workerPool.execute(() -> partitionA.tickEntities());
-workerPool.execute(() -> partitionB.tickEntities());`}
-          language="java"
-        />
 
         <h2 id="virtual-threads" className="text-2xl font-bold text-white pt-6 border-t border-white/5">
-          Virtual Threads for Chunk I/O
+          Virtual Threads
         </h2>
         <p className="text-slate-300 leading-relaxed">
-          Rather than blocking dedicated OS threads when reading chunk region files from disk, Veltis uses Java 21 Project Loom
-          Virtual Threads. When a region file read blocks on storage I/O, the virtual thread unmounts from its carrier thread,
-          freeing CPU cores for continuous tick computation.
+          Veltis runs on Java 25 and uses virtual threads for ancillary asynchronous work. This keeps
+          task scheduling from consuming a platform thread per task; it is not a claim that the game
+          loop itself is parallel.
         </p>
       </div>
     ),

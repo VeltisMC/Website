@@ -37,16 +37,16 @@ export const gettingStartedDocs: DocArticle[] = [
         </h2>
         <ul className="list-disc pl-6 space-y-2 text-slate-300">
           <li>
-            <strong className="text-white">Multithreaded World Simulation:</strong> Region ownership and single-writer state coordination so independent world work can run across workers while conflicting world mutations remain ordered.
+            <strong className="text-white">Multithreaded World Simulation (in development):</strong> Region ownership and single-writer state are in place; partitioned parallel ticking is a roadmap goal, not a shipped feature.
           </li>
           <li>
-            <strong className="text-white">Better Use of Modern CPUs:</strong> Efficient multi-core scaling to eliminate single-thread bottlenecks.
+            <strong className="text-white">Modern Runtime:</strong> Running on Java 25 and up, and using virtual threads for ancillary asynchronous work.
           </li>
           <li>
-            <strong className="text-white">Lower Server Overhead:</strong> Reduced memory footprint and CPU utilization for smoother server ticks.
+            <strong className="text-white">Lower Server Overhead:</strong> Allocation reductions are pursued patch by patch; no comparative performance figures are published.
           </li>
           <li>
-            <strong className="text-white">Fast & Reliable Startup:</strong> Clean runtime initialization and deterministic startup.
+            <strong className="text-white">Fast &amp; Reliable Startup:</strong> Clean runtime initialization and deterministic startup.
           </li>
         </ul>
 

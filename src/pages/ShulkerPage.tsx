@@ -1,4 +1,3 @@
-import { Terminal } from 'lucide-react'
 import CodeBlock from '../components/common/CodeBlock'
 import Badge from '../components/common/Badge'
 
@@ -15,26 +14,35 @@ export default function ShulkerPage() {
           Shulker Patch Engine
         </h1>
         <p className="text-slate-400 text-base sm:text-lg max-w-3xl leading-relaxed">
-          The automated Git-based patching infrastructure that drives Veltis development. Shulker allows us
-          to apply atomic, reviewable performance modifications to vanilla Minecraft without maintaining
-          a massive, unmaintainable hard fork.
+          The Git-based patching infrastructure that drives Veltis development. Shulker applies
+          reviewable modifications to the decompiled vanilla Minecraft server, so Veltis does not
+          have to maintain a large hand-edited fork.
         </p>
       </div>
 
-      {/* 2. Signature Quote Banner */}
-      <div className="p-6 rounded-xl border border-violet-500/30 bg-gradient-to-r from-violet-950/40 via-[#101322] to-violet-950/20 shadow-xl space-y-3">
-        <div className="flex items-center space-x-2">
-          <Terminal className="w-5 h-5 text-violet-400" />
-          <span className="text-xs font-mono uppercase tracking-wider text-violet-300 font-semibold">
-            Signature Server Log Quote
-          </span>
+      {/* 2. At a glance */}
+      <div className="p-6 rounded-xl border border-violet-500/30 bg-gradient-to-r from-violet-950/40 via-[#101322] to-violet-950/20 shadow-xl space-y-4">
+        <span className="text-xs font-mono uppercase tracking-wider text-violet-300 font-semibold">
+          At a glance
+        </span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div className="space-y-1">
+            <p className="text-slate-400 text-xs font-mono uppercase tracking-wider">Modules</p>
+            <p className="text-slate-200 font-mono text-xs">
+              veltis-api &middot; launcher &middot; patch-engine &middot; server
+            </p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-slate-400 text-xs font-mono uppercase tracking-wider">Gradle tasks</p>
+            <p className="text-slate-200 font-mono text-xs">
+              applyPatches &middot; rebuildPatches &middot; buildVeltisMC &middot; benchmark
+            </p>
+          </div>
         </div>
-        <div className="font-mono text-lg sm:text-xl text-white font-bold tracking-tight bg-black/40 p-4 rounded-lg border border-white/5">
-          [Veltis] Vanilla lifted. Veltis dropped.
-        </div>
-        <p className="text-xs text-slate-400 leading-relaxed font-sans">
-          <em>Note:</em> This iconic startup message is a playful nod to lifting upstream vanilla deobfuscated bytecode
-          and cleanly dropping in our optimization patches—not a literal description of every atomic Git commit!
+        <p className="text-xs text-slate-400 leading-relaxed">
+          Patch files live in <code>server/Shulker/code/</code>. <code>veltis-api</code> is a
+          boundary that currently holds no classes; the server and runtime code live in{' '}
+          <code>server</code> and <code>patch-engine</code>.
         </p>
       </div>
 
@@ -42,7 +50,7 @@ export default function ShulkerPage() {
       <section className="space-y-6">
         <div className="space-y-2">
           <span className="text-xs font-mono uppercase tracking-widest text-violet-400 font-semibold">
-            PHILOSOPHY & RATIONALE
+            PHILOSOPHY &amp; RATIONALE
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold text-white">
             Why Use a Patch-Based Workflow?
@@ -50,31 +58,33 @@ export default function ShulkerPage() {
         </div>
 
         <p className="text-slate-300 text-sm sm:text-base leading-relaxed max-w-4xl">
-          Maintaining a fork of proprietary or frequently updating upstream software like Minecraft is notoriously difficult.
-          Directly editing source trees leads to git merge conflicts and messy rebases whenever Mojang drops a minor version.
+          Maintaining a fork of a frequently updating upstream is difficult. Directly editing a
+          checked-in source tree leads to merge conflicts and messy rebases whenever the upstream
+          version changes.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
           <div className="p-5 rounded-lg border border-brand-border bg-brand-surface space-y-2">
-            <h3 className="font-bold text-white text-base">Atomic Commits</h3>
+            <h3 className="font-bold text-white text-base">Isolated Changes</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Every optimization or bug fix exists as an isolated Git patch file. If a specific patch has an edge case,
-              it can be reverted without affecting other subsystems.
+              Each change exists as its own Git patch file. If one patch has an edge case, it can be
+              reverted without touching the others.
             </p>
           </div>
 
           <div className="p-5 rounded-lg border border-brand-border bg-brand-surface space-y-2">
-            <h3 className="font-bold text-white text-base">Rapid Version Bumps</h3>
+            <h3 className="font-bold text-white text-base">Re-base on New Versions</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              When Minecraft 1.21.5 or 1.22 releases, Shulker automatically rebases our patch stack on top of Mojang&apos;s
-              new deobfuscated mapping bundle in minutes.
+              When Mojang ships a new Minecraft version, the patch set is re-applied to the newly
+              decompiled sources. Conflicts surface as ordinary Git conflicts to resolve.
             </p>
           </div>
 
           <div className="p-5 rounded-lg border border-brand-border bg-brand-surface space-y-2">
-            <h3 className="font-bold text-white text-base">Clear Upstream Audit</h3>
+            <h3 className="font-bold text-white text-base">Readable Upstream Diff</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Contributors and server operators can inspect every single line of code modified relative to vanilla Minecraft.
+              Every change Veltis makes to vanilla is visible as a patch against the decompiled
+              source.
             </p>
           </div>
         </div>
@@ -90,21 +100,29 @@ export default function ShulkerPage() {
             How Patches Are Organized
           </h2>
           <p className="text-slate-400 text-sm">
-            In the Veltis repository, patches are split cleanly between public APIs and server internals:
+            The patches applied to the decompiled server source, in application order:
           </p>
         </div>
 
-        <div className="p-5 rounded-lg border border-brand-border bg-[#0d101a] font-mono text-xs text-slate-300 space-y-2">
-          <div>📁 <strong>Veltis/</strong></div>
-          <div className="pl-4">├── 📁 <strong>patches/</strong></div>
-          <div className="pl-8">├── 📁 <strong>api/</strong> <span className="text-slate-500"># Patches applied to Veltis API interfaces</span></div>
-          <div className="pl-12">│   ├── 0001-Add-Veltis-Extension-Context-Interface.patch</div>
-          <div className="pl-12">│   └── 0002-Introduce-Asynchronous-Event-Subscription.patch</div>
-          <div className="pl-8">└── 📁 <strong>server/</strong> <span className="text-slate-500"># Core server engine optimizations</span></div>
-          <div className="pl-12">    ├── 0001-Veltis-Runtime-Bootstrap-and-Branding.patch</div>
-          <div className="pl-12">    ├── 0002-Partitioned-Entity-Tick-Scheduler.patch</div>
-          <div className="pl-12">    ├── 0003-SIMD-Vectorized-Bounding-Box-Distance.patch</div>
-          <div className="pl-12">    └── 0004-Recycle-Netty-ByteBuf-Allocations.patch</div>
+        <div className="p-5 rounded-lg border border-brand-border bg-[#0d101a] font-mono text-xs text-slate-300 space-y-1 overflow-x-auto">
+          <div>server/</div>
+          <div className="pl-4">└── Shulker/</div>
+          <div className="pl-8">└── code/</div>
+          <div className="pl-12">├── 001-Improve-Command-Logging.patch</div>
+          <div className="pl-12">├── 002-Improve-DedicatedServer-Logging.patch</div>
+          <div className="pl-12">├── 003-Improve-PlayerList-Logging.patch</div>
+          <div className="pl-12">├── 004-Wire-VeltisBootstrap-Integration.patch</div>
+          <div className="pl-12">├── 005-Wire-VeltisBootstrap-Shutdown.patch</div>
+          <div className="pl-12">├── 006-Fix-Decompiled-PermissionLevel-Switch.patch</div>
+          <div className="pl-12">├── 007-Report-Total-Startup-Time.patch</div>
+          <div className="pl-12">├── 008-Fix-Decompiled-Hopper-GetEntities-Type-Witness.patch</div>
+          <div className="pl-12">├── 009-Hopper-Item-Lookup.patch</div>
+          <div className="pl-12">├── 010-Skip-Hopper-Search-When-Blocked.patch</div>
+          <div className="pl-12">├── 011-Fix-Decompiled-PathComputationType-Switch.patch</div>
+          <div className="pl-12">├── 012-Cache-Static-Collision-Shapes.patch</div>
+          <div className="pl-12">├── 013-Veltis-Built-in-Datapack.patch</div>
+          <div className="pl-12">├── 014-Sync-Veltis-Chunk-Activity.patch</div>
+          <div className="pl-12">└── 015-Off-Thread-Network-Compression.patch</div>
         </div>
       </section>
 
@@ -118,35 +136,37 @@ export default function ShulkerPage() {
             Working with Shulker Patches
           </h2>
           <p className="text-slate-400 text-sm">
-            Contributors work in subprojects and rebuild patch files using simple Gradle tasks:
+            The pipeline applies patches to a working copy, you edit there, then export the result
+            back into patch files.
           </p>
         </div>
 
         <div className="space-y-4">
-          <h4 className="text-sm font-semibold text-white">1. Decompile & Apply Existing Patches</h4>
+          <h4 className="text-sm font-semibold text-white">1. Apply the existing patch set</h4>
           <CodeBlock
             language="bash"
-            code={`# Clones vanilla dependencies, applies mappings, and applies git patches
+            code={`# Decompiles the server and applies the patches into a working tree
 ./gradlew applyPatches`}
           />
 
-          <h4 className="text-sm font-semibold text-white">2. Modify Code & Commit to the Submodule</h4>
+          <h4 className="text-sm font-semibold text-white">2. Edit in the applied working tree</h4>
           <p className="text-xs text-slate-400">
-            Navigate to <code>Veltis-Server/</code> or <code>Veltis-API/</code>, write your optimization or fix, and make a standard Git commit.
+            Make your change in the patched sources under <code>minecraft/workspace/</code> and
+            commit it with Git.
           </p>
 
-          <h4 className="text-sm font-semibold text-white">3. Rebuild Patches Back into the Repository</h4>
+          <h4 className="text-sm font-semibold text-white">3. Export commits back to patch files</h4>
           <CodeBlock
             language="bash"
-            code={`# Exports your Git commits into serialized .patch files in patches/
+            code={`# Writes your commits back out as .patch files in server/Shulker/code/
 ./gradlew rebuildPatches`}
           />
 
-          <h4 className="text-sm font-semibold text-white">4. Compile & Test the Server</h4>
+          <h4 className="text-sm font-semibold text-white">4. Build the server</h4>
           <CodeBlock
             language="bash"
-            code={`# Builds the executable server JAR artifact in build/libs/
-./gradlew build`}
+            code={`# Produces the distributable at build/distributions/veltis.jar
+./gradlew buildVeltisMC`}
           />
         </div>
       </section>
@@ -161,9 +181,11 @@ export default function ShulkerPage() {
             Patch Conflict Resolution
           </h2>
           <p className="text-slate-400 text-sm max-w-3xl leading-relaxed">
-            When upstream changes conflict with an existing patch, Shulker pauses the rebase and leaves standard Git conflict markers
-            (<code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>). Resolve the conflict, run <code>git add .</code>, and type <code>git am --continue</code>.
-            Once complete, running <code>./gradlew rebuildPatches</code> updates the patch files cleanly.
+            When upstream changes conflict with an existing patch, application stops and leaves
+            standard Git conflict markers (<code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>). Resolve the
+            conflict, stage the files, and continue the patch application. Running{' '}
+            <code>./gradlew rebuildPatches</code> afterwards records the resolution back into the
+            patch files.
           </p>
         </div>
       </section>

@@ -18,67 +18,67 @@ export default function ArchitectureDiagram() {
     shulker: {
       id: 'shulker',
       title: 'Shulker Patch Pipeline',
-      role: 'Upstream Code Ingestion & AST Patch Engine',
+      role: 'Upstream Source Ingestion & Patch Engine',
       description:
-        'Lifts vanilla Minecraft deobfuscated sources, validates symbol mappings, and applies clean, atomic Git patches without dirtying upstream history.',
+        'Takes the decompiled vanilla Minecraft server source, applies Veltis\u2019s Git patch set, and verifies the resulting workspace. Upstream files are never edited in place.',
       details: [
-        'Automated 3-way AST rebasing across Mojang releases',
-        'Separation of patches/server and patches/api',
-        'Strict zero-drift policy against vanilla protocol contracts',
+        'Git-based patch application to the decompiled server source',
+        'Workspace verification after patching',
+        'Upstream history is not modified in place',
       ],
       badge: 'Patch Toolchain',
     },
     core: {
       id: 'core',
       title: 'Veltis Core Runtime',
-      role: 'Java 21 Engine & State Coordinator',
+      role: 'Java 25 Runtime & World State',
       description:
-        'The heartbeat of the server. Orchestrates partitioned tick execution, harmonizes state commits, and manages memory lifetimes.',
+        'The server a player connects to. It runs the game loop on a single authoritative thread and keeps world state consistent through the region-based world engine.',
       details: [
-        'Targeted Java 21 LTS baseline with Generational ZGC support',
-        'Direct ByteBuf off-heap memory management',
-        'Lock-free spatial state barriers across chunk domains',
+        'Java 25 runtime baseline',
+        'Single authoritative game thread for world state',
+        'Region-based world engine',
       ],
-      badge: 'Kernel Engine',
+      badge: 'Core Runtime',
     },
     tick: {
       id: 'tick',
-      title: 'Parallel Tick Scheduler',
-      role: 'Multi-Core Worker Dispatcher',
+      title: 'Tick Engine',
+      role: 'Single-Threaded Game Loop',
       description:
-        'Splits entity AI, pathfinding, and physics across dedicated worker pools, keeping main-thread tick durations well within the 50ms budget.',
+        'Entity ticks, block physics and redstone run in order on the main thread, as the game requires. Ancillary asynchronous tasks run on virtual threads.',
       details: [
-        'Quadtree spatial entity partitioning',
-        'Work-stealing thread pools balanced across physical CPU cores',
-        'Deterministic state reconciliation at tick boundaries',
+        'Game loop runs on the main thread, in order',
+        'Virtual threads for ancillary asynchronous tasks',
+        'Partitioned parallel ticking is a roadmap item and is not shipped',
       ],
-      badge: 'Concurrency Layer',
+      badge: 'Game Loop',
     },
     io: {
       id: 'io',
-      title: 'Non-blocking I/O & Network',
-      role: 'Virtual Thread Storage & SIMD Netty',
+      title: 'Networking & I/O',
+      role: 'Netty & Optional Off-Thread Compression',
       description:
-        'Eliminates synchronous disk stalls by running chunk region file deserialization on Java 21 Virtual Threads and compressing packets with Libdeflate.',
+        'Networking runs on Netty worker threads. Veltis can additionally move packet compression off-thread; that optimisation is opt-in and disabled by default.',
       details: [
-        'Java 21 Project Loom virtual threads for async chunk I/O',
-        'Zero-allocation Netty buffer recycling',
-        'AVX-512 / NEON hardware vector acceleration',
+        'Netty worker threads for packet I/O',
+        'Optional off-thread packet compression (default off)',
+        'No SIMD or vector acceleration is claimed',
       ],
       badge: 'I/O & Networking',
     },
     api: {
       id: 'api',
-      title: 'Native Capability API',
-      role: 'Extension Contract & Concurrency Boundaries',
+      title: 'Extension API (Planned)',
+      role: 'Not Yet Available',
       description:
-        'Clean, capability-oriented plugin framework that enforces safe off-thread computation while providing full access to world and entity context.',
+        'The veltis-api module is currently a placeholder. No plugin API, lifecycle hooks or Bukkit compatibility layer exist in current builds; these are roadmap items.',
       details: [
-        'Explicit lifecycle hooks: onInitialize, onEnable, onDisable',
-        'Safe task scheduling distinguished by CPU vs. state access',
-        'Optional compatibility bridge for legacy Bukkit/Paper plugins',
+        'veltis-api is an empty placeholder today',
+        'No lifecycle hooks are implemented',
+        'A Bukkit/Paper bridge is a roadmap item, not shipped',
       ],
-      badge: 'Developer Portal',
+      badge: 'Planned',
     },
   }
 
@@ -115,7 +115,7 @@ export default function ArchitectureDiagram() {
               </div>
               <h4 className="text-sm font-semibold text-white">Shulker Patch Engine</h4>
               <p className="text-xs text-slate-400 mt-1 line-clamp-2">
-                Lifts vanilla deobfuscated bytecode and injects optimization patches cleanly.
+                Applies Veltis&apos;s Git patch set to the decompiled vanilla server source.
               </p>
             </button>
 
@@ -139,7 +139,7 @@ export default function ArchitectureDiagram() {
               </div>
               <h4 className="text-sm font-semibold text-white">Veltis Core Runtime</h4>
               <p className="text-xs text-slate-400 mt-1 line-clamp-2">
-                Java 21 LTS foundation, state synchronization, and low-latency GC tuning.
+                Java 25 runtime with a single authoritative game loop and region-based world state.
               </p>
             </button>
 
@@ -158,12 +158,12 @@ export default function ArchitectureDiagram() {
                   <Zap className="w-5 h-5" />
                 </div>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">
-                  Parallelism
+                  Game Loop
                 </span>
               </div>
-              <h4 className="text-sm font-semibold text-white">Parallel Tick Scheduler</h4>
+              <h4 className="text-sm font-semibold text-white">Tick Engine</h4>
               <p className="text-xs text-slate-400 mt-1 line-clamp-2">
-                Spatial entity partitioning across multi-core worker pools.
+                In-order game loop on the main thread; virtual threads for async tasks.
               </p>
             </button>
 
@@ -182,12 +182,12 @@ export default function ArchitectureDiagram() {
                   <Database className="w-5 h-5" />
                 </div>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                  Storage & Net
+                  Networking
                 </span>
               </div>
-              <h4 className="text-sm font-semibold text-white">Non-blocking I/O & Net</h4>
+              <h4 className="text-sm font-semibold text-white">Networking &amp; I/O</h4>
               <p className="text-xs text-slate-400 mt-1 line-clamp-2">
-                Virtual Threads for disk access and zero-allocation network pipelines.
+                Netty packet I/O, with optional off-thread compression (off by default).
               </p>
             </button>
 
@@ -209,9 +209,9 @@ export default function ArchitectureDiagram() {
                   Extensions
                 </span>
               </div>
-              <h4 className="text-sm font-semibold text-white">Native Capability API & Bukkit Bridge</h4>
+              <h4 className="text-sm font-semibold text-white">Extension API (Planned)</h4>
               <p className="text-xs text-slate-400 mt-1">
-                Capability-based plugin boundaries designed for safe concurrency, with optional legacy Bukkit compatibility.
+                The veltis-api module is a placeholder; no plugin API or Bukkit bridge ships today.
               </p>
             </button>
           </div>

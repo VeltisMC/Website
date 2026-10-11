@@ -8,15 +8,17 @@ export default function ArchitecturePage() {
       {/* 1. Header Banner */}
       <div className="space-y-4">
         <div className="flex items-center space-x-2">
-          <Badge variant="violet">INTERNAL SPECIFICATION</Badge>
-          <Badge variant="emerald">VERIFIED ARCHITECTURE</Badge>
+          <Badge variant="violet">ARCHITECTURE OVERVIEW</Badge>
+          <Badge variant="emerald">DESIGN INTENT</Badge>
         </div>
         <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
           System Architecture
         </h1>
         <p className="text-slate-400 text-base sm:text-lg max-w-3xl leading-relaxed">
-          An in-depth analysis of the Veltis kernel: how we deconstruct the vanilla Minecraft execution
-          loop, partition state across physical cores, and isolate memory allocation pipelines.
+          How Veltis is put together: how it applies its patches to the decompiled vanilla server,
+          which parts of the execution loop it changes today, and which changes are still design
+          goals. Anything not yet shipped is labelled as such — nothing here is presented as
+          delivered performance.
         </p>
       </div>
 
@@ -44,8 +46,8 @@ export default function ArchitecturePage() {
             Server Initialization & Bootstrap
           </h2>
           <p className="text-slate-400 text-sm max-w-2xl leading-relaxed">
-            From the initial invocation of <code>Main.main()</code> to the listening network socket,
-            Veltis establishes memory arenas and worker pools before loading worlds.
+            What happens between launching the JVM and the server accepting connections. This is the
+            bootstrap that exists today.
           </p>
         </div>
 
@@ -54,31 +56,31 @@ export default function ArchitecturePage() {
             <span className="text-xs font-mono text-violet-400 font-bold">01 / JVM BOOT</span>
             <h4 className="text-sm font-semibold text-white">Runtime Sanity Check</h4>
             <p className="text-xs text-slate-400">
-              Validates Java 21 LTS presence, initializes Vector API SIMD bindings, and checks huge-page support.
+              Confirms the Java 25+ runtime and assembles the module classpath before the server starts.
             </p>
           </div>
 
           <div className="p-4 rounded-lg border border-brand-border bg-brand-surface space-y-2">
             <span className="text-xs font-mono text-violet-400 font-bold">02 / PATCH MATRIX</span>
-            <h4 className="text-sm font-semibold text-white">Shulker Verification</h4>
+            <h4 className="text-sm font-semibold text-white">Shulker Workspace</h4>
             <p className="text-xs text-slate-400">
-              Verifies integrity checksums of applied bytecode patches. Emits the signature quote.
+              Applies the Git patch set to the decompiled vanilla server source and verifies the resulting workspace.
             </p>
           </div>
 
           <div className="p-4 rounded-lg border border-brand-border bg-brand-surface space-y-2">
-            <span className="text-xs font-mono text-violet-400 font-bold">03 / WORKER POOL</span>
-            <h4 className="text-sm font-semibold text-white">Scheduler ForkJoin</h4>
+            <span className="text-xs font-mono text-violet-400 font-bold">03 / TASK ENGINE</span>
+            <h4 className="text-sm font-semibold text-white">Tick &amp; Task Scheduling</h4>
             <p className="text-xs text-slate-400">
-              Allocates physical worker thread affinities and mounts Virtual Thread executors for disk I/O.
+              Starts the game loop and task scheduler. Ancillary tasks run on virtual threads.
             </p>
           </div>
 
           <div className="p-4 rounded-lg border border-brand-border bg-brand-surface space-y-2">
             <span className="text-xs font-mono text-violet-400 font-bold">04 / WORLD LOAD</span>
-            <h4 className="text-sm font-semibold text-white">Spatial Partitioning</h4>
+            <h4 className="text-sm font-semibold text-white">World Engine</h4>
             <p className="text-xs text-slate-400">
-              Divides world dimensions into spatial sectors and starts asynchronous chunk cache preheating.
+              Loads dimensions through the region-based world engine and begins serving the network socket.
             </p>
           </div>
         </div>
@@ -91,74 +93,71 @@ export default function ArchitecturePage() {
             THREADING INVARIANTS
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold text-white">
-            Partitioned Tick Concurrency Model
+            Tick Execution and Threading
           </h2>
           <p className="text-slate-400 text-sm max-w-3xl leading-relaxed">
-            In vanilla Minecraft, entity tick execution, mob pathfinding, block physics, and networking are all
-            intertwined into one monolithic thread loop. Veltis separates them into non-overlapping stages:
+            Veltis keeps a single authoritative game thread for world state. Entity ticking, block
+            physics and redstone run in that thread, in order, as the game requires. Networking stays
+            on Netty&apos;s own threads, and ancillary asynchronous tasks run on virtual threads
+            instead of holding a platform thread each.
           </p>
         </div>
 
         <div className="p-5 rounded-lg border border-brand-border bg-[#0b0e17] space-y-4">
           <h3 className="text-base font-bold text-white flex items-center space-x-2">
             <Cpu className="w-5 h-5 text-violet-400" />
-            <span>Tick Phase Synchronization Barrier</span>
+            <span>Where work runs today</span>
           </h3>
 
           <div className="space-y-3 font-mono text-xs">
             <div className="p-3 rounded bg-white/5 border border-white/5 flex items-center justify-between">
-              <span className="text-slate-300">Phase 1: Inbound Packet Ingestion & Deserialization</span>
-              <span className="text-emerald-400">Off-Thread Netty Workers</span>
+              <span className="text-slate-300">Inbound packet ingestion &amp; deserialization</span>
+              <span className="text-emerald-400">Netty worker threads</span>
             </div>
             <div className="p-3 rounded bg-white/5 border border-white/5 flex items-center justify-between">
-              <span className="text-slate-300">Phase 2: Entity Spatial Hashing & AI Pathfinding</span>
-              <span className="text-violet-400">Partitioned ForkJoin Workers</span>
+              <span className="text-slate-300">Entity ticks, block physics, redstone (in order)</span>
+              <span className="text-sky-400">Main game thread</span>
             </div>
             <div className="p-3 rounded bg-white/5 border border-white/5 flex items-center justify-between">
-              <span className="text-slate-300">Phase 3: Synchronous State Harmonization & Redstone</span>
-              <span className="text-sky-400">Main Game Thread</span>
+              <span className="text-slate-300">Ancillary asynchronous tasks</span>
+              <span className="text-emerald-400">Virtual threads</span>
             </div>
             <div className="p-3 rounded bg-white/5 border border-white/5 flex items-center justify-between">
-              <span className="text-slate-300">Phase 4: Outbound Chunk & Entity Packet Dispatch</span>
-              <span className="text-emerald-400">Off-Thread Virtual Threads</span>
+              <span className="text-slate-300">Outbound packet dispatch</span>
+              <span className="text-emerald-400">Netty worker threads</span>
             </div>
           </div>
+
+          <p className="text-xs text-slate-500 leading-relaxed pt-1">
+            Partitioning entity and pathfinding execution across worker pools is a roadmap item. It is
+            not implemented in current builds and is not described here as if it were.
+          </p>
         </div>
       </section>
 
-      {/* 5. Memory & Netty Buffer Allocation */}
+      {/* 5. Network Pipeline */}
       <section className="space-y-6 pt-6 border-t border-white/5">
         <div className="space-y-2">
           <span className="text-xs font-mono uppercase tracking-widest text-violet-400 font-semibold">
-            ZERO-ALLOCATION PIPELINE
+            NETWORK PIPELINE
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold text-white">
-            Buffer Recycling & Garbage Collection
+            Optional Off-Thread Compression
           </h2>
         </div>
 
         <p className="text-slate-300 text-sm leading-relaxed max-w-3xl">
-          Standard Minecraft servers allocate millions of temporary <code>byte[]</code> arrays per second when broadcasting
-          chunk packets and entity movements. Under high player counts, this puts immense strain on the JVM garbage collector,
-          leading to latency stutters.
+          Packet compression is CPU work that otherwise runs while holding up packet delivery. Veltis
+          can hand that work to separate threads. The optimisation is opt-in and off by default; when
+          it is off, compression behaves exactly as it does upstream.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-          <div className="p-5 rounded-lg border border-brand-border bg-brand-surface space-y-3">
-            <h4 className="text-sm font-bold text-white">Vanilla / Legacy Model</h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Every chunk packet generates isolated byte arrays on the heap. When 50 players load chunks concurrently, the JVM
-              experiences multi-gigabyte heap churn per minute, triggering frequent GC cycles.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-lg border border-violet-500/30 bg-violet-950/15 space-y-3">
-            <h4 className="text-sm font-bold text-violet-300">Veltis Off-Heap Recycling</h4>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Veltis maintains pooled direct ByteBuf arenas outside the managed heap. Reusable network buffers are recycled
-              upon socket transmission, dropping GC allocation pressure by up to 80%.
-            </p>
-          </div>
+        <div className="p-5 rounded-lg border border-brand-border bg-brand-surface space-y-3 max-w-3xl">
+          <h4 className="text-sm font-bold text-white">Status</h4>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Enabled through configuration, disabled by default. No comparative performance figures are
+            published, because none have been benchmarked and reproduced.
+          </p>
         </div>
       </section>
     </div>
