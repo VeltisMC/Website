@@ -43,8 +43,8 @@ export default function DevelopersPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 text-left">
           <div className="p-4 rounded-lg bg-black/40 border border-white/5 space-y-1">
             <span className="text-[11px] font-mono text-violet-400 font-bold block">CURRENT FOCUS</span>
-            <h4 className="text-xs font-semibold text-white">World Simulation</h4>
-            <p className="text-[11px] text-slate-400">Region ownership and multithreaded simulation engine.</p>
+            <h4 className="text-xs font-semibold text-white">World Engine</h4>
+            <p className="text-[11px] text-slate-400">Region ownership and world-state consistency.</p>
           </div>
           <div className="p-4 rounded-lg bg-black/40 border border-white/5 space-y-1">
             <span className="text-[11px] font-mono text-amber-400 font-bold block">IN QUEUE</span>

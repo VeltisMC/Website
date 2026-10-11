@@ -96,9 +96,9 @@ export default function HomePage() {
             <div className="p-2.5 w-fit rounded-lg bg-violet-500/10 text-violet-400">
               <Zap className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-white">Multithreaded Simulation</h3>
+            <h3 className="text-lg font-bold text-white">Single-Writer World State</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Designed around region ownership and single-writer state. Independent world work can run across workers while conflicting mutations remain strictly ordered.
+              A single authoritative game thread owns world state, so conflicting mutations are always ordered. Partitioned parallel ticking is a roadmap item, not a shipped feature.
             </p>
           </div>
 
@@ -109,7 +109,7 @@ export default function HomePage() {
             </div>
             <h3 className="text-lg font-bold text-white">Direct Vanilla Foundation</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Not based on Bukkit, Spigot, or Paper. Veltis works directly with Minecraft&apos;s server code and adds its own runtime and world simulation engine.
+              Not based on Bukkit, Spigot, or Paper. Veltis works directly with Minecraft&apos;s server code and adds its own runtime and world engine.
             </p>
           </div>
 
@@ -118,9 +118,9 @@ export default function HomePage() {
             <div className="p-2.5 w-fit rounded-lg bg-emerald-500/10 text-emerald-400">
               <Layers className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-white">Better CPU Utilization</h3>
+            <h3 className="text-lg font-bold text-white">Modern Runtime</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Engineered to take full advantage of modern multi-core processors, reducing main-thread bottlenecking and lowering server operational overhead.
+              Runs on Java 25 with virtual threads for ancillary asynchronous work, so background tasks do not each hold a platform thread.
             </p>
           </div>
 
@@ -131,7 +131,7 @@ export default function HomePage() {
             </div>
             <h3 className="text-lg font-bold text-white">Modern Java 25+</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Targeting cutting-edge Java runtimes with modern memory management and JVM improvements for high-throughput execution.
+              Runs on Java 25 and up, using the runtime&apos;s own memory management and virtual-thread support.
             </p>
           </div>
 

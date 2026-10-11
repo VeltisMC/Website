@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Download, GitCommit, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
+import { Download, GitCommit, ChevronDown, ChevronUp } from 'lucide-react'
 import type { BuildInfo } from '../../types/release'
-import Badge from '../common/Badge'
+import ChannelBadge from '../common/ChannelBadge'
 
 export interface BuildListProps {
   builds: BuildInfo[]
@@ -10,20 +10,9 @@ export interface BuildListProps {
 export default function BuildList({ builds }: BuildListProps) {
   const [expandedBuild, setExpandedBuild] = useState<string | null>(null)
   const [displayCount, setDisplayCount] = useState(10)
-  const [copiedSha, setCopiedSha] = useState<string | null>(null)
 
   const toggleExpand = (buildId: string) => {
     setExpandedBuild(expandedBuild === buildId ? null : buildId)
-  }
-
-  const handleCopySha = async (sha: string) => {
-    try {
-      await navigator.clipboard.writeText(sha)
-      setCopiedSha(sha)
-      setTimeout(() => setCopiedSha(null), 2000)
-    } catch {
-      // fallback
-    }
   }
 
   const visibleBuilds = builds.slice(0, displayCount)
@@ -63,17 +52,7 @@ export default function BuildList({ builds }: BuildListProps) {
                     <span className="text-xs font-mono font-semibold text-slate-300" title={build.artifact}>
                       {build.artifact}
                     </span>
-                    <Badge
-                      variant={
-                        build.channel === 'stable'
-                          ? 'emerald'
-                          : build.channel === 'beta'
-                            ? 'cyan'
-                            : 'amber'
-                      }
-                    >
-                      {build.channel}
-                    </Badge>
+                    <ChannelBadge channel={build.channel} />
                   </div>
 
                   <div className="flex items-center space-x-1.5 text-xs font-mono text-slate-400">
@@ -172,31 +151,6 @@ export default function BuildList({ builds }: BuildListProps) {
                           >
                             View GitHub release
                           </a>
-                        </div>
-                      )}
-
-                      {build.sha256 && (
-                        <div>
-                          <span className="text-slate-500 font-mono block mb-1">
-                            SHA-256 Checksum:
-                          </span>
-                          <div className="flex items-center space-x-2">
-                            <code className="p-1.5 rounded bg-slate-900 border border-white/10 font-mono text-[11px] text-slate-300 select-all break-all">
-                              {build.sha256}
-                            </code>
-                            <button
-                              type="button"
-                              onClick={() => handleCopySha(build.sha256!)}
-                              className="p-1.5 rounded hover:bg-white/10 text-slate-400 hover:text-white"
-                              title="Copy SHA-256"
-                            >
-                              {copiedSha === build.sha256 ? (
-                                <Check className="w-4 h-4 text-emerald-400" />
-                              ) : (
-                                <Copy className="w-4 h-4" />
-                              )}
-                            </button>
-                          </div>
                         </div>
                       )}
                     </div>

@@ -7,6 +7,21 @@ name: Sync release metadata
 # The build repository owns the metadata; this workflow never originates it and
 # never invents a value. If the payload is malformed the job fails loudly and the
 # site is left unchanged.
+#
+# Payload shape (a repository_dispatch allows only ten top-level `client_payload`
+# properties, so the build facts and the durable location are grouped):
+#
+#   client_payload.metadata = the build's build-metadata.json
+#     channel, version, minecraftVersion, commit, shortCommit, artifact,
+#     assetName, distributionArtifact, minimumJavaVersion
+#   client_payload.release = the published GitHub Release
+#     downloadUrl, releaseUrl, publishedAt, size
+#
+# `artifact` is the human release title (`Veltis 26.3 nightly 3077e84.jar`).
+# GitHub normalizes every uploaded asset name, folding the spaces to dots, so the
+# stored/downloaded file is `assetName`
+# (`Veltis.26.3.nightly.3077e84.jar`). Both are carried, and both are checked
+# against each other and against the download URL.
 on:
   repository_dispatch:
     types: [veltis-release]
@@ -20,6 +35,10 @@ permissions:
 concurrency:
   group: sync-release-metadata
   cancel-in-progress: false
+
+env:
+  # The only repository a release may come from or point at.
+  RELEASE_REPOSITORY: VeltisMC/Veltis
 
 jobs:
   sync:
@@ -39,34 +58,86 @@ jobs:
 
           jq empty "$FILE" || { echo "::error::the payload is not valid JSON"; exit 1; }
 
-          # Every fact the download page renders is checked here. A payload that
-          # fails is rejected outright rather than partially trusted.
-          jq -e '
-            (.channel | type == "string" and IN("stable", "beta", "nightly"))
-            and (.version | type == "string" and length > 0)
-            and (.minecraftVersion | type == "string" and length > 0)
-            and (.commit | type == "string" and test("^[0-9a-f]{40}$"))
-            and (.shortCommit | type == "string" and test("^[0-9a-f]{7}$"))
-            and (.shortCommit == (.commit[0:7]))
-            and (.artifact | type == "string" and length > 0)
-            and (.artifact == ("Veltis " + .minecraftVersion + " " + .channel + " " + .shortCommit + ".jar"))
-            and (.assetName | type == "string" and length > 0 and test("^[A-Za-z0-9_+@.-]+$"))
-            and (.assetName == (.artifact | gsub(" "; ".")))
-            and (.distributionArtifact == "veltis.jar")
-            and (.downloadUrl | type == "string" and test("^https://"))
-            and (.publishedAt | type == "string" and (fromdateiso8601? != null))
-            and ((.size == null) or (.size | type == "number" and . > 0))
-          ' "$FILE" > /dev/null || {
+          # One named boolean per invariant, so a failure names the exact field
+          # rather than only saying the payload is wrong. Every fact the download
+          # page renders is checked; a payload is rejected outright rather than
+          # partially trusted. No secret is ever printed.
+          CHECKS=$(jq -c --arg repo "$RELEASE_REPOSITORY" '
+            def supported: IN("pre-alpha", "alpha", "beta", "release", "stable", "nightly");
+
+            # GitHub replaces every run of characters outside [A-Za-z0-9_+@-] with
+            # a dot, collapses runs of dots and trims the edges. This one rule is
+            # shared by the Gradle build, the upload and this check.
+            def githubAssetName:
+              (gsub("[^A-Za-z0-9_+@-]+"; ".")
+               | gsub("\\.{2,}"; ".")
+               | sub("^\\.+"; "")
+               | sub("\\.+$"; ""))
+              | if . == "" then "veltis.jar" else . end;
+
+            . as $p
+            | $p.metadata.channel as $ch
+            | $p.metadata.minecraftVersion as $mc
+            | $p.metadata.shortCommit as $sha
+            | ("veltis-" + ($ch | tostring) + "-" + ($mc | tostring) + "-" + ($sha | tostring)) as $tag
+            | $p.metadata.artifact as $art
+            | $p.metadata.assetName as $asset
+            | {
+                "metadata.channel":
+                  ((($ch | type) == "string") and ($ch | supported)),
+                "metadata.version":
+                  (((($p.metadata.version | type) == "string") and (($p.metadata.version | length) > 0))),
+                "metadata.minecraftVersion":
+                  (((($mc | type) == "string") and (($mc | length) > 0))),
+                "metadata.commit":
+                  ((($p.metadata.commit | type) == "string") and ($p.metadata.commit | test("^[0-9a-f]{40}$"))),
+                "metadata.shortCommit":
+                  ((($sha | type) == "string") and ($sha | test("^[0-9a-f]{7}$"))),
+                "metadata.shortCommit.matchesCommit":
+                  (((($p.metadata.commit | type) == "string") and (($sha | type) == "string")) and ($sha == ($p.metadata.commit[0:7]))),
+                "metadata.artifact":
+                  ((($art | type) == "string") and ($art == ("Veltis " + ($mc // "") + " " + ($ch // "") + " " + ($sha // "") + ".jar"))),
+                "metadata.assetName":
+                  (((($asset | type) == "string") and (($asset | length) > 0)) and ($asset | test("^[A-Za-z0-9_+@.-]+$"))),
+                "metadata.assetName.matchesArtifact":
+                  ((($art | type) == "string") and ($asset == (try ($art | githubAssetName) catch ""))),
+                "metadata.distributionArtifact":
+                  ($p.metadata.distributionArtifact == "veltis.jar"),
+                "metadata.minimumJavaVersion":
+                  (($p.metadata.minimumJavaVersion == null)
+                   or (try ($p.metadata.minimumJavaVersion | type == "number" and . == floor and . >= 8 and . <= 99) catch false)),
+                "release.downloadUrl.isString":
+                  (($p.release.downloadUrl | type) == "string"),
+                "release.downloadUrl.repository":
+                  (try ((($p.release.downloadUrl // "") | tostring)
+                   | startswith("https://github.com/" + $repo + "/releases/download/" + $tag + "/")) catch false),
+                "release.downloadUrl.asset":
+                  ((try (($p.release.downloadUrl // "") | tostring | split("?")[0] | split("#")[0] | split("/") | last) catch "") == $asset),
+                "release.releaseUrl":
+                  ($p.release.releaseUrl == ("https://github.com/" + $repo + "/releases/tag/" + $tag)),
+                "release.publishedAt":
+                  (((($p.release.publishedAt | type) == "string")
+                   and (try ($p.release.publishedAt | fromdateiso8601 | type == "number") catch false))),
+                "release.size":
+                  (($p.release.size == null)
+                   or (try ($p.release.size | type == "number" and . == floor and . > 0) catch false))
+              }
+          ' "$FILE")
+
+          if ! echo "$CHECKS" | jq -e 'to_entries | all(.[]; .value == true)' > /dev/null; then
             echo "::error::the release payload failed validation; the site was not updated"
+            echo "--- failed checks ---"
+            echo "$CHECKS" | jq -r 'to_entries[] | select(.value != true) | "  - \(.key)"'
+            echo "--- received payload ---"
             cat "$FILE"
             exit 1
-          }
+          fi
 
           {
-            echo "channel=$(jq -r .channel "$FILE")"
-            echo "commit=$(jq -r .commit "$FILE")"
-            echo "shortCommit=$(jq -r .shortCommit "$FILE")"
-            echo "artifact=$(jq -r .artifact "$FILE")"
+            echo "channel=$(jq -r .metadata.channel "$FILE")"
+            echo "commit=$(jq -r .metadata.commit "$FILE")"
+            echo "shortCommit=$(jq -r .metadata.shortCommit "$FILE")"
+            echo "artifact=$(jq -r .metadata.artifact "$FILE")"
           } >> "$GITHUB_OUTPUT"
 
       - name: Update the channel metadata
@@ -82,9 +153,13 @@ jobs:
 
           # Only the incoming channel's file is touched, so publishing a nightly
           # never rewrites stable history. The new build is newest; older entries
-          # are kept, de-duplicated by commit, and capped.
+          # are kept, de-duplicated by commit (a duplicate dispatch therefore does
+          # not duplicate history), sorted newest first and capped. Pruning always
+          # keeps the newest entry first, so a previous valid release is never
+          # dropped in favour of an older one.
+          ENTRY=$(jq -c '.metadata + .release' "$RUNNER_TEMP/payload.json")
           jq -n \
-            --argjson incoming "$(cat "$RUNNER_TEMP/payload.json")" \
+            --argjson incoming "$ENTRY" \
             --argjson prev "$PREV" \
             --arg channel "$CHANNEL" \
             '{
@@ -101,9 +176,11 @@ jobs:
           mv "$FILE.tmp" "$FILE"
 
           # Re-read what was written and confirm it still parses as expected.
-          jq -e '
-            (.channel | IN("stable", "beta", "nightly"))
+          jq -e --arg channel "$CHANNEL" '
+            (.channel | IN("pre-alpha", "alpha", "beta", "release", "stable", "nightly"))
+            and (.channel == $channel)
             and (.latest.commit | test("^[0-9a-f]{40}$"))
+            and (.latest.downloadUrl | test("^https://github.com/"))
             and (.history | length > 0)
           ' "$FILE" > /dev/null || {
             echo "::error::the written $FILE is invalid; refusing to commit"

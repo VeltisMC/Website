@@ -35,7 +35,7 @@ export default function ContributingPage() {
             <strong className="text-white">JDK 26 (Java 25+):</strong> Eclipse Temurin or GraalVM JDK 26 configured in your environment.
           </li>
           <li>
-            <strong className="text-white">Git 2.30+:</strong> Required for Shulker&apos;s automated <code>git am</code> and patch rebasing tasks.
+            <strong className="text-white">Git 2.30+:</strong> Required for applying and rebuilding the Shulker patch set.
           </li>
           <li>
             <strong className="text-white">IDE:</strong> IntelliJ IDEA (recommended with the Minecraft Development plugin) or Eclipse.
@@ -45,11 +45,11 @@ export default function ContributingPage() {
         <h3 className="text-lg font-bold text-white pt-4">Cloning & Building</h3>
         <CodeBlock
           language="bash"
-          code={`# 1. Clone the Veltis repository recursively
+          code={`# 1. Clone the Veltis repository
 git clone https://github.com/VeltisMC/Veltis.git
 cd Veltis
 
-# 2. Setup subprojects and apply Shulker patch stack
+# 2. Decompile and apply the Shulker patch set
 ./gradlew applyPatches
 
 # 3. Compile the complete project and run unit tests
@@ -67,7 +67,7 @@ cd Veltis
             Writing & Submitting Patches
           </h2>
           <p className="text-slate-400 text-sm max-w-3xl leading-relaxed">
-            All code changes to vanilla Minecraft are stored as Git patch files in the <code>patches/server/</code> or <code>patches/api/</code> directories.
+            All changes to the decompiled server are stored as Git patch files in <code>server/Shulker/code/</code>.
           </p>
         </div>
 
@@ -77,27 +77,28 @@ cd Veltis
             <p className="text-xs text-slate-400">
               Always branch from <code>main</code> before modifying code:
             </p>
-            <CodeBlock language="bash" code={`git checkout -b feat/vectorized-pathfinding`} />
+            <CodeBlock language="bash" code={`git checkout -b feat/reduce-entity-lookup-cost`} />
           </div>
 
           <div className="p-4 rounded-lg border border-brand-border bg-brand-surface space-y-2">
-            <h4 className="font-semibold text-white">Step 2: Commit Inside the Submodule</h4>
+            <h4 className="font-semibold text-white">Step 2: Commit Inside the Applied Working Tree</h4>
             <p className="text-xs text-slate-400">
-              Navigate to <code>Veltis-Server/</code> or <code>Veltis-API/</code>, implement your change, and commit:
+              After <code>./gradlew applyPatches</code>, edit the sources under <code>minecraft/workspace/</code> and commit
+              them with Git:
             </p>
             <CodeBlock
               language="bash"
-              code={`cd Veltis-Server
-git commit -m "Optimize entity navigation vector math"`}
+              code={`# the applied sources live under minecraft/workspace/<version>/patched
+git commit -am "Reduce entity lookup cost"`}
             />
           </div>
 
           <div className="p-4 rounded-lg border border-brand-border bg-brand-surface space-y-2">
             <h4 className="font-semibold text-white">Step 3: Rebuild Patch Files</h4>
             <p className="text-xs text-slate-400">
-              Return to the root directory and run Shulker&apos;s patch generator:
+              From the repository root, run Shulker&apos;s patch generator:
             </p>
-            <CodeBlock language="bash" code={`cd .. && ./gradlew rebuildPatches`} />
+            <CodeBlock language="bash" code={`./gradlew rebuildPatches`} />
           </div>
 
           <div className="p-4 rounded-lg border border-brand-border bg-brand-surface space-y-2">
@@ -125,10 +126,10 @@ git commit -m "Optimize entity navigation vector math"`}
             <strong className="text-white">Clean Comments & Licensing:</strong> Preserve all upstream copyright comments and docstrings.
           </li>
           <li>
-            <strong className="text-white">Microbenchmarks (JMH):</strong> For performance-sensitive PRs, include a JMH benchmark or Spark profiling trace demonstrating measurable latency reduction.
+            <strong className="text-white">Microbenchmarks (JMH):</strong> For performance-sensitive PRs, include a JMH benchmark or a JFR recording demonstrating measurable latency reduction.
           </li>
           <li>
-            <strong className="text-white">No Arbitrary Thread Spawns:</strong> Use Veltis worker pool executors rather than creating unbound threads.
+            <strong className="text-white">Threads:</strong> Avoid creating unbound threads; use the scheduler facilities already present in the codebase.
           </li>
         </ul>
       </section>
