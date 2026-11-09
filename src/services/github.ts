@@ -41,6 +41,12 @@ function commitUrl(commit: string): string {
   return `https://github.com/${siteConfig.githubRepo}/commit/${commit}`
 }
 
+/** Extracts the hex digest from GitHub's `sha256:<hex>` asset digest. */
+function digestSha256(digest: string | null | undefined): string | undefined {
+  const match = /^sha256:([0-9a-f]{64})$/.exec(digest ?? '')
+  return match ? match[1] : undefined
+}
+
 /** Turns one channel-metadata entry into the shape the download UI renders. */
 function fromChannelRelease(release: ChannelRelease): BuildInfo {
   const short = release.shortCommit || release.commit.slice(0, 7)
@@ -64,6 +70,7 @@ function fromChannelRelease(release: ChannelRelease): BuildInfo {
     artifact,
     releaseUrl: release.releaseUrl,
     size: release.size,
+    sha256: release.sha256,
     javaRequirement:
       typeof release.minimumJavaVersion === 'number'
         ? `Java ${release.minimumJavaVersion}+`
@@ -102,6 +109,11 @@ function isValidChannelRelease(value: unknown): value is ChannelRelease {
   if (r.assetName !== undefined) {
     if (typeof r.assetName !== 'string' || r.assetName.length === 0) return false
     if (r.assetName !== githubAssetName(r.artifact)) return false
+  }
+  // A stored checksum is optional (older builds have none), but a corrupted one
+  // must not be shown as if it were the asset's digest.
+  if (r.sha256 !== undefined) {
+    if (typeof r.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(r.sha256)) return false
   }
   return true
 }
@@ -197,6 +209,7 @@ function parseGitHubRelease(release: GitHubRelease): BuildInfo | null {
     artifact,
     releaseUrl: release.html_url,
     size: jar.size,
+    sha256: digestSha256(jar.digest),
     javaRequirement: siteConfig.javaRequirement,
     changes: release.body
       ? release.body

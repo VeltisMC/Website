@@ -44,6 +44,12 @@ At read time the download page prefers those files, falls back to the GitHub
 releases API, and finally shows an honest "no published releases" state. It never
 invents a version, a filename, or a download URL.
 
+The SHA-256 digest comes from the publisher too: the release workflow hashes the
+exact uploaded JAR and includes it in the metadata. Browsing the GitHub API
+fallback uses each asset's published `digest` instead. Both are optional — a
+build published before this field existed simply shows no checksum rather than a
+fabricated one — and the build details show it with a copy action.
+
 ### Required setup
 
 - `main` must be a protected branch with a required status check named `CI`
@@ -102,11 +108,14 @@ This repository is pre-configured for seamless deployment to **Vercel**:
 2. Framework Preset: **Vite**.
 3. Build Command: `npm run build`.
 4. Output Directory: `dist`.
-5. Deploy! `vercel.json` rewrites only the application's declared routes to
-   `index.html`; static assets, release metadata, API paths, and unknown routes
-   are left to Vercel's normal file and 404 handling. The route test checks the
-   rewrite list against the application, and `npm run test:preview` verifies
-   direct requests against a built production preview.
+5. Deploy! `vercel.json` enables `cleanUrls` and rewrites only the application's
+   declared routes to the extensionless `/index`; static assets, release
+   metadata, API paths, and unknown routes are left to Vercel's normal file and
+   404 handling. The rewrite destination must not be `/index.html`: with
+   `cleanUrls` the deployed file has no extension by the time rewrites run, so
+   an `.html` destination 404s. The route test checks the rewrite list against
+   the application, and `npm run test:preview` verifies direct requests against
+   a built production preview.
 
 ---
 

@@ -3,71 +3,71 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/downloads",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs/introduction",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs/prerequisites",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs/downloading-and-first-boot",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs/troubleshooting",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs/startup-flags",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs/performance-monitoring",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs/overview",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs/concurrency-model",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/docs/migrating-from-paper",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/developers",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/community",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/contributing",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/changelog",
-      "destination": "/index.html"
+      "destination": "/index"
     },
     {
       "source": "/license",
-      "destination": "/index.html"
+      "destination": "/index"
     }
   ],
   "headers": [

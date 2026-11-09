@@ -51,6 +51,8 @@ export interface GitHubReleaseAsset {
   browser_download_url: string
   size: number
   created_at: string
+  /** GitHub's published digest, e.g. `sha256:<hex>`, when the API provides one. */
+  digest?: string | null
 }
 
 export interface GitHubRelease {
@@ -94,6 +96,8 @@ export interface ChannelRelease {
   publishedAt: string
   size?: number
   minimumJavaVersion?: number
+  /** SHA-256 of the published JAR, computed by the publisher from the asset. */
+  sha256?: string
 }
 
 /**

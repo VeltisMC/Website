@@ -35,9 +35,13 @@ name: Sync release metadata
 #
 #   client_payload.metadata = the build's build-metadata.json
 #     channel, version, minecraftVersion, commit, shortCommit, artifact,
-#     assetName, distributionArtifact, minimumJavaVersion
+#     assetName, distributionArtifact, minimumJavaVersion, sha256
 #   client_payload.release = the published GitHub Release
 #     downloadUrl, releaseUrl, publishedAt, size
+#
+# `sha256` is the digest of the uploaded JAR as the publisher computed it, so the
+# download page can display a checksum that describes the exact asset it links
+# to. It is optional: older builds predate it, and their entries stay valid.
 #
 # `artifact` is the human release title (`Veltis 26.3 pre-alpha 3077e84.jar`).
 # GitHub normalizes every uploaded asset name, folding the spaces to dots, so the
@@ -136,6 +140,10 @@ jobs:
                 "metadata.minimumJavaVersion":
                   (($p.metadata.minimumJavaVersion == null)
                    or (try ($p.metadata.minimumJavaVersion | type == "number" and . == floor and . >= 8 and . <= 99) catch false)),
+                "metadata.sha256":
+                  (($p.metadata.sha256 == null)
+                   or (try ((($p.metadata.sha256 | type) == "string")
+                            and ($p.metadata.sha256 | test("^[0-9a-f]{64}$"))) catch false)),
                 "release.downloadUrl.isString":
                   (($p.release.downloadUrl | type) == "string"),
                 "release.downloadUrl.repository":
