@@ -72,6 +72,33 @@ describe('fetchReleases metadata path', () => {
 })
 
 describe('fetchReleases GitHub fallback', () => {
+  it('does not expose a release page as a download when its JAR asset is missing', async () => {
+    const releases = [
+      {
+        id: 4,
+        tag_name: 'veltis-pre-alpha-26.3-ddddddd',
+        name: 'Veltis 26.3 pre-alpha ddddddd',
+        body: '',
+        prerelease: true,
+        draft: false,
+        published_at: '2026-10-10T15:00:00Z',
+        html_url: 'https://github.com/VeltisMC/Veltis/releases/tag/veltis-pre-alpha-26.3-ddddddd',
+        assets: [],
+      },
+    ]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.startsWith('https://api.github.com/')) return okResponse(releases)
+        return notFound()
+      }),
+    )
+
+    const result = await fetchReleases()
+    expect(result.versions['26.3']?.builds).toEqual([])
+  })
+
   it('never infers a channel that a release does not encode', async () => {
     const releases = [
       {

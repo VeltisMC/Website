@@ -151,19 +151,35 @@ async function fetchPublishedReleases(): Promise<BuildInfo[] | null> {
 /** Recovers a build from a GitHub Release when no metadata file exists yet. */
 function parseGitHubRelease(release: GitHubRelease): BuildInfo | null {
   const tag = release.tag_name || ''
-  const jar = release.assets?.find((a) => a.name.endsWith('.jar'))
+  const jar = release.assets?.find(
+    (asset) =>
+      asset.name.endsWith('.jar') &&
+      ARTIFACT_PATTERN.test(asset.name) &&
+      asset.browser_download_url.startsWith('https://'),
+  )
   const fromAsset = jar ? ARTIFACT_PATTERN.exec(jar.name) : null
   const fromTag = TAG_PATTERN.exec(tag)
 
-  const channel = fromAsset?.[2] ?? fromTag?.[1]
+  // Only expose a download when the published release includes a real JAR
+  // asset whose filename identifies a supported channel. A release page is
+  // not a substitute download URL when its asset is missing.
+  if (!jar || !fromAsset) return null
+
+  const channel = fromAsset[2]
   // A GitHub Release carries no channel of its own, and no inference from
   // `prerelease` or the tag is ever made: when the asset or tag does not name a
   // supported channel, the release is not offered rather than being guessed.
   if (!isReleaseChannel(channel)) return null
+  if (
+    fromTag &&
+    (fromTag[1] !== channel || fromTag[2] !== fromAsset[1] || fromTag[3] !== fromAsset[3])
+  ) {
+    return null
+  }
 
-  const minecraftVersion = fromAsset?.[1] ?? fromTag?.[2] ?? siteConfig.defaultMinecraftVersion
-  const short = fromAsset?.[3] ?? fromTag?.[3] ?? ''
-  const artifact = jar?.name ?? release.name ?? tag
+  const minecraftVersion = fromAsset[1]
+  const short = fromAsset[3]
+  const artifact = jar.name
 
   return {
     id: tag || String(release.id),
@@ -177,10 +193,10 @@ function parseGitHubRelease(release: GitHubRelease): BuildInfo | null {
     commitHash: short || 'HEAD',
     commitUrl: release.html_url,
     commitMessage: release.name || tag,
-    downloadUrl: jar ? jar.browser_download_url : release.html_url,
+    downloadUrl: jar.browser_download_url,
     artifact,
     releaseUrl: release.html_url,
-    size: jar?.size,
+    size: jar.size,
     javaRequirement: siteConfig.javaRequirement,
     changes: release.body
       ? release.body
@@ -217,7 +233,10 @@ async function fetchFromGitHub(): Promise<ReleaseFetchResult> {
       return {
         versions: groupBuildsByVersion([]),
         isLiveGitHubData: false,
-        sourceNote: 'No releases found yet. Published builds will appear here.',
+        sourceNote:
+          releases.length > 0
+            ? 'No supported downloadable JAR releases were found.'
+            : 'No releases found yet. Published builds will appear here.',
       }
     }
 

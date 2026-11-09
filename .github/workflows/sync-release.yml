@@ -262,6 +262,7 @@ jobs:
         if: steps.stage.outputs.changed == 'true'
         env:
           GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           BRANCH="${{ steps.stage.outputs.branch }}"
@@ -282,6 +283,7 @@ jobs:
           SHORT: ${{ steps.payload.outputs.shortCommit }}
           ARTIFACT: ${{ steps.payload.outputs.artifact }}
           GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           BRANCH="${{ steps.stage.outputs.branch }}"
@@ -316,6 +318,7 @@ jobs:
           SHORT: ${{ steps.payload.outputs.shortCommit }}
           ARTIFACT: ${{ steps.payload.outputs.artifact }}
           GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           BRANCH="release-metadata/$CHANNEL"
@@ -337,8 +340,8 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title "release: $CHANNEL $SHORT ($ARTIFACT)" \
-            --body "$BODY" > /tmp/pr-url.txt
-          echo "::notice::Opened $(cat /tmp/pr-url.txt)"
+            --body "$BODY" > "$RUNNER_TEMP/pr-url.txt"
+          echo "::notice::Opened $(cat "$RUNNER_TEMP/pr-url.txt")"
           PR_NUMBER=$(gh pr list --head "$BRANCH" --base main --state open --json number -q '.[0].number')
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
@@ -346,6 +349,7 @@ jobs:
         if: steps.stage.outputs.branch != '' && ! cancelled()
         env:
           GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           BRANCH="${{ steps.stage.outputs.branch }}"
