@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import type { BuildInfo } from '../../types/release'
 import { CHANNELS, canonicalChannel, channelDefinition } from '../../config/channels'
+import { formatFileSize } from '../../utils/formatFileSize'
 import ChannelBadge from '../common/ChannelBadge'
 
 export interface DownloadHeroProps {
@@ -132,6 +133,7 @@ export default function DownloadHero({
                 <span>Published {formatDate(primary.publishedAt)}</span>
               </span>
               <span className="text-slate-500">{primary.javaRequirement}</span>
+              {primary.size ? <span>{formatFileSize(primary.size)}</span> : null}
             </div>
           ) : null}
         </div>

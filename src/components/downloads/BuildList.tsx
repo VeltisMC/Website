@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Download, GitCommit, ChevronDown, ChevronUp } from 'lucide-react'
 import type { BuildInfo } from '../../types/release'
+import { formatFileSize } from '../../utils/formatFileSize'
 import ChannelBadge from '../common/ChannelBadge'
 
 export interface BuildListProps {
@@ -63,6 +64,11 @@ export default function BuildList({ builds }: BuildListProps) {
                   <span className="text-xs font-mono text-slate-500 hidden sm:inline">
                     {dateStr}
                   </span>
+                  {build.size ? (
+                    <span className="text-xs font-mono text-slate-500">
+                      {formatFileSize(build.size)}
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="flex-1 md:px-4 text-xs text-slate-300 line-clamp-1 font-sans">

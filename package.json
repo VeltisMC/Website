@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:preview": "node scripts/test-production-preview.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

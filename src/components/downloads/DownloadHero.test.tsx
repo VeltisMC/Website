@@ -20,7 +20,7 @@ function build(partial: Partial<BuildInfo> & { id: string; channel: BuildInfo['c
   }
 }
 
-const release = build({ id: 'r', channel: 'release' })
+const release = build({ id: 'r', channel: 'release', size: 1572864 })
 const beta = build({
   id: 'b',
   channel: 'beta',
@@ -71,6 +71,22 @@ describe('DownloadHero', () => {
       />,
     )
     expect(screen.getAllByText('Pre-alpha').length).toBeGreaterThan(0)
+  })
+
+  it('shows the asset size when published metadata includes it', () => {
+    render(
+      <DownloadHero
+        primary={release}
+        builds={[release]}
+        hasRelease
+        includeExperimental={false}
+        loading={false}
+        onToggleExperimental={noop}
+        onSelectBuild={noop}
+        onRetry={noop}
+      />,
+    )
+    expect(screen.getByText('1.5 MiB')).toBeInTheDocument()
   })
 
   it('never offers a download when no build is eligible', () => {

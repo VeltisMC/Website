@@ -87,6 +87,9 @@ npm run lint
 
 # Preview the production build locally
 npm run preview
+
+# Check that the production preview serves direct application routes
+npm run test:preview
 ```
 
 ---
@@ -99,7 +102,11 @@ This repository is pre-configured for seamless deployment to **Vercel**:
 2. Framework Preset: **Vite**.
 3. Build Command: `npm run build`.
 4. Output Directory: `dist`.
-5. Deploy! Client-side routing is handled via `vercel.json`.
+5. Deploy! `vercel.json` rewrites only the application's declared routes to
+   `index.html`; static assets, release metadata, API paths, and unknown routes
+   are left to Vercel's normal file and 404 handling. The route test checks the
+   rewrite list against the application, and `npm run test:preview` verifies
+   direct requests against a built production preview.
 
 ---
 

@@ -75,5 +75,22 @@ describe('sync-release workflow', () => {
     // A PR opened with GITHUB_TOKEN does not fire pull_request workflows, so
     // the workflow must dispatch the CI workflow explicitly on the branch.
     expect(workflow).toContain('gh workflow run website-ci.yml')
+    expect(workflow).toContain('--ref "$BRANCH"')
+  })
+
+  it('authenticates GitHub CLI with the workflow token and least required permissions', () => {
+    expect(workflow.match(/GH_TOKEN: \$\{\{ github\.token \}\}/g)).toHaveLength(4)
+    expect(workflow).toContain('contents: write')
+    expect(workflow).toContain('pull-requests: write')
+    expect(workflow).toContain('actions: write')
+    expect(workflow).not.toContain('secrets.GH_TOKEN')
+    expect(workflow).not.toMatch(/contents:\s*write[\s\S]{0,80}administration:\s*write/)
+  })
+
+  it('reuses an open PR for the metadata branch and avoids external temp paths', () => {
+    expect(workflow).toContain('gh pr list --head "$BRANCH" --base main --state open')
+    expect(workflow).toContain('PR #$PR_NUMBER')
+    expect(workflow).toContain('"$RUNNER_TEMP/pr-url.txt"')
+    expect(workflow).not.toContain('/tmp/')
   })
 })
