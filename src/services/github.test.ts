@@ -26,6 +26,7 @@ const stableFile = {
     publishedAt: '2026-10-10T12:00:00Z',
     size: 100,
     minimumJavaVersion: 25,
+    sha256: 'a'.repeat(64),
   },
   history: [],
 }
@@ -49,7 +50,25 @@ describe('fetchReleases metadata path', () => {
     expect(builds[0].artifact).toBe('Veltis 26.3 stable 3077e84.jar')
     expect(builds[0].artifact).not.toContain('.stable.')
     expect(builds[0].channel).toBe('stable')
+    expect(builds[0].sha256).toBe('a'.repeat(64))
     expect(result.versions['26.3']?.latestRelease?.commitHash).toBe('3077e84')
+  })
+
+  it('rejects a metadata file whose checksum is malformed', async () => {
+    const badChecksum = {
+      ...stableFile,
+      latest: { ...stableFile.latest, sha256: 'not-a-digest' },
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        return url.endsWith('/stable.json') ? okResponse(badChecksum) : notFound()
+      }),
+    )
+    const result = await fetchReleases()
+    const withBuilds = Object.values(result.versions).some((v) => v.builds.length > 0)
+    expect(withBuilds).toBe(false)
   })
 
   it('rejects a metadata file whose channel is not supported', async () => {
@@ -158,6 +177,7 @@ describe('fetchReleases GitHub fallback', () => {
               'https://github.com/VeltisMC/Veltis/releases/download/p/Veltis.26.3.pre-alpha.ccccccc.jar',
             size: 1,
             created_at: '2026-10-10T14:00:00Z',
+            digest: `sha256:${'c'.repeat(64)}`,
           },
         ],
       },
@@ -177,5 +197,7 @@ describe('fetchReleases GitHub fallback', () => {
     // explicitly-encoded pre-alpha release survives.
     expect(builds).toHaveLength(1)
     expect(builds[0].channel).toBe('pre-alpha')
+    // GitHub publishes the asset digest as `sha256:<hex>`; only the hex is kept.
+    expect(builds[0].sha256).toBe('c'.repeat(64))
   })
 })

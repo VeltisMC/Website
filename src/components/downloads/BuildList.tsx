@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, GitCommit, ChevronDown, ChevronUp } from 'lucide-react'
+import { Download, GitCommit, ChevronDown, ChevronUp, Check, Copy } from 'lucide-react'
 import type { BuildInfo } from '../../types/release'
 import { formatFileSize } from '../../utils/formatFileSize'
 import ChannelBadge from '../common/ChannelBadge'
@@ -11,9 +11,19 @@ export interface BuildListProps {
 export default function BuildList({ builds }: BuildListProps) {
   const [expandedBuild, setExpandedBuild] = useState<string | null>(null)
   const [displayCount, setDisplayCount] = useState(10)
+  const [copiedChecksum, setCopiedChecksum] = useState<string | null>(null)
 
   const toggleExpand = (buildId: string) => {
     setExpandedBuild(expandedBuild === buildId ? null : buildId)
+  }
+
+  const copyChecksum = async (checksum: string) => {
+    try {
+      await navigator.clipboard.writeText(checksum)
+      setCopiedChecksum(checksum)
+    } catch {
+      // Clipboard access can be denied; the checksum is still selectable text.
+    }
   }
 
   const visibleBuilds = builds.slice(0, displayCount)
@@ -146,6 +156,27 @@ export default function BuildList({ builds }: BuildListProps) {
                         <span className="text-slate-500 font-mono block mb-1">Target JVM:</span>
                         <span className="text-slate-300 font-mono">{build.javaRequirement}</span>
                       </div>
+
+                      {build.sha256 && (
+                        <div>
+                          <span className="text-slate-500 font-mono block mb-1">SHA-256:</span>
+                          <div className="flex items-start gap-2">
+                            <span className="text-slate-300 font-mono break-all">{build.sha256}</span>
+                            <button
+                              type="button"
+                              onClick={() => copyChecksum(build.sha256!)}
+                              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/5 shrink-0"
+                              aria-label="Copy SHA-256 checksum"
+                            >
+                              {copiedChecksum === build.sha256 ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {build.releaseUrl && (
                         <div>

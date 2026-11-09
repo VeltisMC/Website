@@ -177,12 +177,25 @@ describe('validateReleasePayload', () => {
     expectRejected(validate(payloadFor('pre-alpha', { metadata: { minimumJavaVersion: 3.5 } })), 'metadata.minimumJavaVersion')
   })
 
-  it('accepts a payload that omits an optional size and Java requirement', () => {
+  it('accepts a payload that omits an optional size, Java requirement and checksum', () => {
     const value = expectAccepted(
       validate(payloadFor('pre-alpha', { metadata: { minimumJavaVersion: null }, release: { size: null } })),
     )
     expect(value.minimumJavaVersion).toBeUndefined()
     expect(value.size).toBeUndefined()
+    expect(value.sha256).toBeUndefined()
+  })
+
+  it('carries a publisher-supplied SHA-256 checksum', () => {
+    const sha256 = 'a'.repeat(64)
+    const value = expectAccepted(validate(payloadFor('pre-alpha', { metadata: { sha256 } })))
+    expect(value.sha256).toBe(sha256)
+  })
+
+  it('rejects a checksum that is not a lowercase SHA-256 digest', () => {
+    expectRejected(validate(payloadFor('pre-alpha', { metadata: { sha256: 'abc123' } })), 'metadata.sha256')
+    expectRejected(validate(payloadFor('pre-alpha', { metadata: { sha256: 'A'.repeat(64) } })), 'metadata.sha256')
+    expectRejected(validate(payloadFor('pre-alpha', { metadata: { sha256: 42 } })), 'metadata.sha256')
   })
 
   it('rejects a non-positive size', () => {

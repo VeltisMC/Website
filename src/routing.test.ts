@@ -31,11 +31,24 @@ describe('production route rewrites', () => {
     const rewriteSources = config.rewrites.map(({ source }) => source)
 
     expect(new Set(rewriteSources)).toEqual(routes)
-    expect(config.rewrites.every(({ destination }) => destination === '/index.html')).toBe(true)
+    // `cleanUrls` strips `.html` from the deployed filenames, so a rewrite to
+    // `/index.html` resolves to a file that no longer exists (the production
+    // `/downloads` 404). The destination must be the extensionless `/index`.
+    expect(config.rewrites.every(({ destination }) => destination === '/index')).toBe(true)
     expect(rewriteSources.some((source) => /[*:?()]/.test(source))).toBe(false)
 
     for (const path of ['/assets/main.js', '/api/health', '/releases/stable.json', '/unknown-route']) {
       expect(rewriteSources).not.toContain(path)
     }
+  })
+})
+
+describe('sitemap', () => {
+  it('lists exactly the routes the application serves', () => {
+    const sitemap = readFileSync(resolve(root, 'public/sitemap.xml'), 'utf8')
+    const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
+      ([, loc]) => new URL(loc).pathname,
+    )
+    expect(new Set(locs)).toEqual(applicationRoutes())
   })
 })

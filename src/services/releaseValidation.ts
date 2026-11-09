@@ -26,6 +26,7 @@ export interface ReleasePayloadMetadata {
   assetName?: unknown
   distributionArtifact?: unknown
   minimumJavaVersion?: unknown
+  sha256?: unknown
 }
 
 /** The durable location half of the dispatch payload. */
@@ -57,6 +58,7 @@ export interface NormalizedRelease {
   releaseUrl: string
   publishedAt: string
   size?: number
+  sha256?: string
 }
 
 export interface ValidationIssue {
@@ -79,6 +81,7 @@ export interface ReleaseValidatorConfig {
 
 const FULL_SHA = /^[0-9a-f]{40}$/
 const SHORT_SHA = /^[0-9a-f]{7}$/
+const SHA256 = /^[0-9a-f]{64}$/
 const ASSET_NAME = /^[A-Za-z0-9_+@.-]+$/
 
 /**
@@ -227,6 +230,17 @@ export function validateReleasePayload(
     }
   }
 
+  // Checksum, when the publisher supplied one, must be a real SHA-256 digest.
+  let sha256: string | undefined
+  if (metadata.sha256 !== undefined && metadata.sha256 !== null) {
+    const s = asString(metadata.sha256)
+    if (s === undefined || !SHA256.test(s)) {
+      fail('metadata.sha256', 'is not a lowercase SHA-256 digest', '^[0-9a-f]{64}$', String(metadata.sha256))
+    } else {
+      sha256 = s
+    }
+  }
+
   // 7/8/9/10. Location.
   const downloadUrl = expectString('release.downloadUrl', release.downloadUrl)
   const releaseUrl = expectString('release.releaseUrl', release.releaseUrl)
@@ -305,6 +319,7 @@ export function validateReleasePayload(
       releaseUrl: releaseUrl!,
       publishedAt: publishedAt!,
       size,
+      sha256,
     },
   }
 }
